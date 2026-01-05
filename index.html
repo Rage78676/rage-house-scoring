@@ -1,1 +1,157 @@
 index.html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>The Rage House – Scoring</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebarBrand">
+        <div class="logoCircle">RH</div>
+        <div class="brandText">
+          <div class="brandTitle">THE RAGE HOUSE</div>
+          <div class="brandSub">Lane Scoring</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="navItem active" id="navScoreboard">Scoreboard</button>
+        <button class="navItem" id="navGames">Games</button>
+        <button class="navItem" id="navAllGames">All Games</button>
+      </nav>
+
+      <div class="sidebarFooter">
+        <button class="btnSecondary full" id="unlockBtn">🔒 Staff Locked</button>
+        <div class="tiny muted" style="margin-top:8px;">
+          Tip: staff unlock needed to edit players / rounds / throws / game.
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main">
+      <header class="pageHeader">
+        <div>
+          <div class="crumb">Home / <span id="pageTitle">Scoreboard</span></div>
+          <h1 id="pageH1">Scoreboard</h1>
+        </div>
+
+        <div class="headerActions">
+          <button class="btnSecondary" id="undoBtn">Undo</button>
+          <button class="btnDanger" id="missBtn">Miss</button>
+        </div>
+      </header>
+
+      <!-- Games page -->
+      <section class="card" id="pageGames" style="display:none;">
+        <div class="cardTitleRow">
+          <h2>Game Info</h2>
+          <div class="muted">Staff only</div>
+        </div>
+
+        <div class="grid2">
+          <div class="panel">
+            <label class="field">
+              <span>Select Lane</span>
+              <select id="laneSelect">
+                <option>Lane 1</option>
+                <option>Lane 2</option>
+                <option>Lane 3</option>
+                <option>Lane 4</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Game Type</span>
+              <select id="gameSelect"></select>
+            </label>
+
+            <label class="field">
+              <span>Rounds</span>
+              <input id="roundsInput" type="number" min="1" max="10" value="3" />
+            </label>
+
+            <label class="field">
+              <span>Throws</span>
+              <input id="throwsInput" type="number" min="1" max="20" value="7" />
+            </label>
+
+            <div class="muted tiny">
+              Changes here reset the current scoreboard.
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panelTitle">Players (max 10)</div>
+
+            <div id="playersList" class="playersList"></div>
+
+            <div class="addPlayerRow">
+              <input id="newPlayerName" type="text" placeholder="Player Name" />
+              <button class="btnPrimary" id="addPlayerBtn">+ Add Player</button>
+            </div>
+
+            <button class="btnPrimary full" id="applyGameBtn">Add / Start Game</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- All games page -->
+      <section class="card" id="pageAllGames" style="display:none;">
+        <div class="cardTitleRow">
+          <h2>All Played Games</h2>
+          <div class="muted">Saved on this device</div>
+        </div>
+
+        <div class="tableWrap" id="historyTable"></div>
+
+        <div style="margin-top:10px;">
+          <button class="btnDanger" id="clearHistoryBtn">Clear History (this device)</button>
+        </div>
+      </section>
+
+      <!-- Scoreboard page -->
+      <section class="card" id="pageScoreboard">
+        <div class="cardTitleRow">
+          <h2>Scoreboard</h2>
+          <div class="muted" id="statusText">Ready</div>
+        </div>
+
+        <div class="tableWrap" id="scoreboard"></div>
+
+        <div class="targetArea">
+          <div class="targetFrame">
+            <img id="gameImage" alt="Target" />
+            <svg id="overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none"></svg>
+
+            <button class="missOnBoard" id="missOnBoardBtn">Miss</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Staff PIN modal -->
+  <div class="modalBackdrop" id="pinModal" style="display:none;">
+    <div class="modal">
+      <h3>Staff Unlock</h3>
+      <p class="muted">Enter PIN to edit games, rounds, throws and player names.</p>
+      <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN" />
+      <div class="modalActions">
+        <button class="btnSecondary" id="pinCancelBtn">Cancel</button>
+        <button class="btnPrimary" id="pinOkBtn">Unlock</button>
+      </div>
+      <div class="muted tiny" id="pinMsg"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
