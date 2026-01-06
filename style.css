@@ -167,7 +167,7 @@ tr.activeRow td.stickyLeft { font-weight: 900; color:#1d6fff; }
 
 /* Large invisible tap area */
 .scoreBtn circle {
-  r: 50; /* 🔴 BIG tap zone (default was ~34) */
+  r: 60; /* 🔴 BIG tap zone (default was ~34) */
   fill: rgba(29,111,255,0);     /* invisible */
   stroke: rgba(29,111,255,0);   /* invisible */
   stroke-width: 0;
