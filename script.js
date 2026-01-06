@@ -333,7 +333,6 @@ function addPlayer() {
   if (!staffUnlocked) return;
   const name = (newPlayerName.value || "").trim();
   if (!name) return;
-  if (state.players.length >= 10) return;
 
   state.players.push(name);
   newPlayerName.value = "";
