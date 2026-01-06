@@ -293,8 +293,6 @@ function setStaffUnlocked(unlocked) {
   renderPlayersEditor();
 }
 
-}
-
 // ---------- PLAYERS ----------
 function renderPlayersEditor() {
   playersList.innerHTML = "";
