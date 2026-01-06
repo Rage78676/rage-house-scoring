@@ -1,6 +1,10 @@
 /*********************************
  * Rage House Scoring (Local-only)
- * FULL BUILD + QR Results Viewer (NO lane URLs)
+ * FULL BUILD + QR Results Viewer
+ * FIXES:
+ *  - Idle screen no longer blocks Unlock button
+ *  - Idle screen tap opens PIN modal
+ *  - Safety exit if you accidentally load viewer mode
  *********************************/
 
 // ====== CHANGE THIS PIN ======
@@ -39,7 +43,7 @@ function escapeHtml(s) {
   }[c]));
 }
 
-// Base64 helpers that survive emojis
+// Base64 helpers (emoji-safe)
 function toB64Unicode(str) {
   return btoa(unescape(encodeURIComponent(str)));
 }
@@ -127,7 +131,7 @@ const GAMES = [
 ];
 
 // ====== STORAGE ======
-const KEY_STATE = "rh_state_full_qr_nolane_v1";
+const KEY_STATE = "rh_state_full_qr_v2";
 
 // ====== GLOBALS ======
 let staffUnlocked = false;
@@ -217,13 +221,16 @@ let state = loadState() ?? {
 boot();
 
 async function boot() {
-  // Results viewer mode (customers on phone)
+  // Viewer mode (customers phone)
   if (isViewerMode()) {
+    // If someone opened ?view=1 without hash data, show safe exit
+    const hasData = (window.location.hash || "").includes("#d=");
+    if (!hasData) return renderViewerErrorWithExit();
     renderResultsViewerFromUrl();
     return;
   }
 
-  // Populate game dropdown
+  // Populate dropdown
   gameSelect.innerHTML = GAMES.map(g => `<option value="${g.id}">${g.name}</option>`).join("");
   gameSelect.value = state.gameId;
 
@@ -245,10 +252,14 @@ async function boot() {
   renderTarget();
   renderScoreboard();
   renderSessionBar();
-  updateIdleOverlay();
 
   showPage("scoreboard");
   setStaffUnlocked(false);
+
+  // ✅ IMPORTANT FIX:
+  // Idle overlay is clickable to unlock, but it will NEVER cover the topbar
+  // because we keep its z-index BELOW .topbar
+  setupIdleOverlayUnlock();
 
   // Nav
   navScoreboard.addEventListener("click", () => showPage("scoreboard"));
@@ -261,7 +272,7 @@ async function boot() {
   pinOkBtn.addEventListener("click", tryUnlock);
   pinInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
 
-  // Staff controls (reset auto-lock whenever used)
+  // Staff controls
   addPlayerBtn.addEventListener("click", () => { addPlayer(); armAutoLock(); });
   applyGameBtn.addEventListener("click", () => { applyGameSettings(); armAutoLock(); });
   teamModeBtn.addEventListener("click", () => { toggleTeamMode(); armAutoLock(); });
@@ -321,21 +332,66 @@ async function boot() {
     saveState();
   });
 
-  // QR Results button
+  // QR Results
   addQrResultsButton();
 
   // Resume timer
   resumeTimerIfNeeded();
+
+  // Show/hide idle overlay correctly
+  updateIdleOverlay();
 }
 
-// ====== VIEWER MODE (customers on phone) ======
+// ====== IDLE OVERLAY CLICK TO UNLOCK (FIX) ======
+function setupIdleOverlayUnlock() {
+  if (!idleOverlay) return;
+
+  // Ensure it can be clicked
+  idleOverlay.style.pointerEvents = "auto";
+
+  // Tap anywhere on idle overlay opens PIN
+  idleOverlay.addEventListener("click", () => {
+    // Only when locked
+    if (!staffUnlocked) openPinModal();
+  });
+}
+
+// ====== VIEWER MODE ======
 function isViewerMode() {
   const params = new URLSearchParams(window.location.search);
   return params.get("view") === "1";
 }
 
-function renderResultsViewerFromUrl() {
+function renderViewerErrorWithExit() {
   // Hide staff UI
+  if (navScoreboard) navScoreboard.style.display = "none";
+  if (navGames) navGames.style.display = "none";
+  if (navAllGames) navAllGames.style.display = "none";
+  if (unlockBtn) unlockBtn.style.display = "none";
+  if (pinModal) pinModal.style.display = "none";
+  if (idleOverlay) idleOverlay.style.display = "none";
+
+  if (pageGames) pageGames.style.display = "none";
+  if (pageAllGames) pageAllGames.style.display = "none";
+  if (pageScoreboard) pageScoreboard.style.display = "";
+
+  scoreboardEl.innerHTML = `
+    <div class="card">
+      <h2>Results Link Missing</h2>
+      <p class="muted">This page was opened in viewer mode but no results were included.</p>
+      <button id="exitViewerBtn">Go Back to Scoring</button>
+    </div>
+  `;
+
+  const btn = document.getElementById("exitViewerBtn");
+  btn.addEventListener("click", () => {
+    // remove view=1 and hash
+    const base = `${window.location.origin}${window.location.pathname}`;
+    window.location.href = base;
+  });
+}
+
+function renderResultsViewerFromUrl() {
   if (navScoreboard) navScoreboard.style.display = "none";
   if (navGames) navGames.style.display = "none";
   if (navAllGames) navAllGames.style.display = "none";
@@ -344,21 +400,16 @@ function renderResultsViewerFromUrl() {
   if (idleOverlay) idleOverlay.style.display = "none";
   if (sessionEndedOverlay) sessionEndedOverlay.style.display = "none";
 
-  // show only scoreboard page
   if (pageGames) pageGames.style.display = "none";
   if (pageAllGames) pageAllGames.style.display = "none";
   if (pageScoreboard) pageScoreboard.style.display = "";
 
-  // Hide target + controls if present
   const targetCard = document.querySelector(".targetCard");
   if (targetCard) targetCard.style.display = "none";
 
   const hash = window.location.hash || "";
   const m = hash.match(/#d=([^&]+)/);
-  if (!m) {
-    scoreboardEl.innerHTML = `<div class="card"><h2>Results</h2><p class="muted">No results found.</p></div>`;
-    return;
-  }
+  if (!m) return renderViewerErrorWithExit();
 
   let payload;
   try {
@@ -368,7 +419,6 @@ function renderResultsViewerFromUrl() {
     return;
   }
 
-  // Render read-only results
   const lane = escapeHtml(payload.lane || "");
   const game = escapeHtml(payload.game || "");
   const rounds = payload.rounds ?? "-";
@@ -409,9 +459,7 @@ function renderResultsViewerFromUrl() {
     <div class="card">
       <h2 style="margin:0 0 6px 0;">Rage House Results</h2>
       <div class="muted">${playedAt ? `Played: ${playedAt} · ` : ""}Lane: ${lane} · Game: ${game} · Rounds: ${rounds} · Throws: ${throwsPerRound}</div>
-
       ${teamHtml}
-
       <div class="card" style="margin-top:12px;">
         <div style="font-weight:900;margin-bottom:8px;">Players</div>
         <table style="width:100%;border-collapse:collapse;">
@@ -425,7 +473,6 @@ function renderResultsViewerFromUrl() {
           <tbody>${rows}</tbody>
         </table>
       </div>
-
       <div class="muted" style="margin-top:10px;">Tip: screenshot this screen to share.</div>
     </div>
   `;
@@ -880,24 +927,17 @@ function stopSessionTimer() {
 
 function resumeTimerIfNeeded() {
   if (state.sessionRunning && state.sessionEndsAt) {
-    if (Date.now() >= state.sessionEndsAt) {
-      endSession();
-    } else {
-      startTick();
-      renderSessionBar();
-    }
-  } else {
-    renderSessionBar();
-  }
+    if (Date.now() >= state.sessionEndsAt) endSession();
+    else { startTick(); renderSessionBar(); }
+  } else renderSessionBar();
 }
 
 function startTick() {
   stopTick();
   timerTick = setInterval(() => {
     if (!state.sessionRunning || !state.sessionEndsAt) return;
-    const left = state.sessionEndsAt - Date.now();
     renderSessionBar();
-    if (left <= 0) endSession();
+    if (state.sessionEndsAt - Date.now() <= 0) endSession();
   }, 250);
 }
 
@@ -927,12 +967,12 @@ async function enterKioskFullscreen() {
   } catch {}
 }
 
-// ====== EXPORT PNG + EMAIL ======
+// ====== EXPORT + EMAIL (kept simple) ======
 async function exportResultsPng() {
   if (!staffUnlocked) return;
 
   if (typeof window.html2canvas !== "function") {
-    alert("Export not available: html2canvas not loaded. Make sure index.html includes the html2canvas script.");
+    alert("Export not available: html2canvas not loaded in index.html.");
     return;
   }
 
@@ -984,10 +1024,6 @@ async function exportResultsPng() {
         `).join("")}
       </tbody>
     </table>
-
-    <div class="sub" style="margin-top:18px;">
-      Post it: <span class="muted">@theragehouse</span>
-    </div>
   `;
 
   card.style.position = "fixed";
@@ -1189,7 +1225,7 @@ async function showQrModal() {
   }
 }
 
-// ====== TIMER TICK ======
+// ====== TIMER ======
 function resumeTimerIfNeeded() {
   if (state.sessionRunning && state.sessionEndsAt) {
     if (Date.now() >= state.sessionEndsAt) endSession();
@@ -1208,8 +1244,57 @@ function stopTick() {
   if (timerTick) clearInterval(timerTick);
   timerTick = null;
 }
+function endSession() {
+  state.sessionRunning = false;
+  saveState();
+  stopTick();
 
-// ====== SAVE / LOAD ======
+  sessionEnded = true;
+  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "";
+  showPage("scoreboard");
+  renderSessionBar();
+  updateIdleOverlay();
+}
+
+// ====== LANE LABEL / TIMER LABEL ======
+function renderSessionBar() {
+  if (laneLabel) laneLabel.textContent = state.lane || "";
+  if (!timerLabel) return;
+
+  timerLabel.textContent = state.sessionRunning && state.sessionEndsAt
+    ? `Timer: ${formatTimeLeft(state.sessionEndsAt - Date.now())}`
+    : `Timer: --:--`;
+}
+
+// ====== START/STOP TIMER ======
+function startSessionTimer() {
+  if (!staffUnlocked) return;
+
+  const mins = clampInt(sessionMinutes.value, 1, 180, 60);
+  state.sessionMinutesDefault = mins;
+
+  state.sessionEndsAt = Date.now() + mins * 60 * 1000;
+  state.sessionRunning = true;
+  sessionEnded = false;
+  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "none";
+
+  saveState();
+  startTick();
+  renderSessionBar();
+  updateIdleOverlay();
+}
+
+function stopSessionTimer() {
+  if (!staffUnlocked) return;
+  state.sessionRunning = false;
+  state.sessionEndsAt = null;
+  saveState();
+  stopTick();
+  renderSessionBar();
+  updateIdleOverlay();
+}
+
+// ====== SAVE/LOAD ======
 function loadState() {
   try { return JSON.parse(localStorage.getItem(KEY_STATE) || "null"); }
   catch { return null; }
