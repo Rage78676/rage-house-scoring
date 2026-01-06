@@ -18,7 +18,7 @@ const GAMES = [
   {
     id: "ducks",
     name: "Ducks",
-    image: "images/images:ducks.png",
+    image: "images/ducks.png",
     buttons: [
       { score: 1, x: 354, y: 293 },
       { score: 6, x: 587, y: 293 },
@@ -36,7 +36,7 @@ const GAMES = [
   {
     id: "axe-classic",
     name: "Axe Classic",
-    image: "images/images:axe-classic.png",
+    image: "images/axe-classic.png",
     buttons: [
       { score: 7, x: 315, y: 95 },  // top-left
       { score: 7, x: 707, y: 95 },  // top-right
@@ -49,14 +49,14 @@ const GAMES = [
   {
     id: "darts",
     name: "Darts",
-    image: "images/images:darts.png",
+    image: "images/darts.png",
     buttons: makeDartsButtons()
   },
 
   {
     id: "zombie",
     name: "Zombie",
-    image: "images/images:zombie.png",
+    image: "images/zombie.png",
     buttons: [
       { score: 10, x: 526, y: 174 }, // head
 
