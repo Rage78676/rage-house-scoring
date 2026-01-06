@@ -11,16 +11,6 @@
 </head>
 <body>
 
-  <!-- Idle / Attract Screen -->
-  <div id="idleOverlay" class="idleOverlay" style="display:none;">
-    <div class="idleInner">
-      <img id="idleLogo" class="idleLogo" src="images/logo.png" alt="Rage House Logo"
-           onerror="this.style.display='none'"/>
-      <div class="idleLane" id="idleLane">Lane 1</div>
-      <div class="idleHint">Tap anywhere to unlock</div>
-    </div>
-  </div>
-
   <!-- Session End Overlay -->
   <div id="sessionEndedOverlay" class="sessionEndedOverlay" style="display:none;">
     <div class="sessionEndedCard">
@@ -80,26 +70,8 @@
     <main class="main">
       <!-- PAGE: Scoreboard -->
       <section id="pageScoreboard" class="page">
-        <div class="grid">
-          <!-- Target -->
-          <div class="card targetCard">
-            <div class="cardHeader">
-              <div class="cardTitle">Target</div>
-            </div>
-
-            <div class="targetWrap">
-              <img id="gameImage" alt="Game target" />
-              <svg id="overlay"></svg>
-            </div>
-
-            <div class="controlsRow">
-              <button id="undoBtn" class="btnDark">Undo</button>
-              <button id="missBtn" class="btnGhost">Miss</button>
-              <button id="missOnBoardBtn" class="btnGhost">Miss (On Board)</button>
-            </div>
-          </div>
-
-          <!-- Scoreboard -->
+        <div class="stack">
+          <!-- Scoreboard FIRST -->
           <div class="card">
             <div class="cardHeader">
               <div>
@@ -113,6 +85,24 @@
             </div>
 
             <div id="scoreboard" class="scoreboard"></div>
+          </div>
+
+          <!-- Target UNDER the scoreboard and BIG -->
+          <div class="card targetCard">
+            <div class="cardHeader">
+              <div class="cardTitle">Target</div>
+            </div>
+
+            <div class="targetWrap bigTarget">
+              <img id="gameImage" alt="Game target" />
+              <svg id="overlay"></svg>
+            </div>
+
+            <div class="controlsRow">
+              <button id="undoBtn" class="btnDark">Undo</button>
+              <button id="missBtn" class="btnGhost">Miss</button>
+              <button id="missOnBoardBtn" class="btnGhost">Miss (On Board)</button>
+            </div>
           </div>
         </div>
       </section>
@@ -156,6 +146,7 @@
 
               <div class="row">
                 <button id="exportPngBtn" class="btnGhost" disabled>Export PNG</button>
+                <button id="qrBtn" class="btnGhost" disabled>Show QR Results</button>
                 <button id="emailResultsBtn" class="btnGhost" disabled>Email Results</button>
               </div>
 
@@ -188,11 +179,11 @@
         <div class="card">
           <div class="cardHeader">
             <div class="cardTitle">All Games</div>
-            <div class="muted">This is a placeholder screen.</div>
+            <div class="muted">Placeholder screen.</div>
           </div>
 
           <div class="muted">
-            (Optional) Later we can store finished games to history and show them here.
+            (Optional) Later we can show game history here.
           </div>
         </div>
       </section>
@@ -201,4 +192,6 @@
 
   <script src="script.js"></script>
 </body>
+</html>
+
 </html>
