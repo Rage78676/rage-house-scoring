@@ -1,17 +1,13 @@
 /*********************************
  * Rage House Scoring (Local-only)
  * FULL BUILD + QR Results Viewer
- * FIXES:
- *  - Idle screen no longer blocks Unlock button
- *  - Idle screen tap opens PIN modal
- *  - Safety exit if you accidentally load viewer mode
  *********************************/
 
 // ====== CHANGE THIS PIN ======
 const STAFF_PIN = "1234";
 
 // ====== AUTO-LOCK ======
-const AUTO_LOCK_MS = 30_000; // 30 seconds
+const AUTO_LOCK_MS = 30_000;
 
 // ====== TEAM CONFIG ======
 const TEAM_NAMES = ["Team A", "Team B", "Team C", "Team D"];
@@ -19,16 +15,17 @@ const TEAM_CLASS = {
   "Team A": "teamA",
   "Team B": "teamB",
   "Team C": "teamC",
-  "Team D": "teamD"
+  "Team D": "teamD",
 };
 
-// ====== HELPERS ======
 const $ = (id) => document.getElementById(id);
+
 const clampInt = (v, min, max, fallback) => {
   const n = Number(v);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(max, Math.floor(n)));
 };
+
 const fmt2 = (n) => String(n).padStart(2, "0");
 function formatTimeLeft(ms) {
   if (!Number.isFinite(ms) || ms < 0) ms = 0;
@@ -37,6 +34,7 @@ function formatTimeLeft(ms) {
   const ss = totalSec % 60;
   return `${fmt2(mm)}:${fmt2(ss)}`;
 }
+
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -88,11 +86,16 @@ const GAMES = [
     name: "Ducks",
     image: "images/ducks.png",
     buttons: [
-      { score: 1, x: 354, y: 293 }, { score: 6, x: 587, y: 293 },
-      { score: 2, x: 449, y: 432 }, { score: 7, x: 365, y: 555 },
-      { score: 5, x: 601, y: 606 }, { score: 3, x: 461, y: 653 },
-      { score: 9, x: 329, y: 701 }, { score: 10, x: 646, y: 702 },
-      { score: 4, x: 558, y: 782 }, { score: 8, x: 393, y: 818 }
+      { score: 1, x: 354, y: 293 },
+      { score: 6, x: 587, y: 293 },
+      { score: 2, x: 449, y: 432 },
+      { score: 7, x: 365, y: 555 },
+      { score: 5, x: 601, y: 606 },
+      { score: 3, x: 461, y: 653 },
+      { score: 9, x: 329, y: 701 },
+      { score: 10, x: 646, y: 702 },
+      { score: 4, x: 558, y: 782 },
+      { score: 8, x: 393, y: 818 }
     ]
   },
   {
@@ -100,8 +103,10 @@ const GAMES = [
     name: "Axe Classic",
     image: "images/axe-classic.png",
     buttons: [
-      { score: 7, x: 315, y: 95 }, { score: 7, x: 707, y: 95 },
-      { score: 1, x: 352, y: 404 }, { score: 3, x: 425, y: 449 },
+      { score: 7, x: 315, y: 95 },
+      { score: 7, x: 707, y: 95 },
+      { score: 1, x: 352, y: 404 },
+      { score: 3, x: 425, y: 449 },
       { score: 5, x: 500, y: 498 }
     ]
   },
@@ -118,27 +123,25 @@ const GAMES = [
     buttons: [
       { score: 10, x: 526, y: 174 },
       { score: 1, x: 387, y: 181 },
-      { score: 2, x: 462, y: 361 }, { score: 2, x: 543, y: 366 },
-      { score: 2, x: 389, y: 404 }, { score: 2, x: 592, y: 449 },
+      { score: 2, x: 462, y: 361 },
+      { score: 2, x: 543, y: 366 },
+      { score: 2, x: 389, y: 404 },
+      { score: 2, x: 592, y: 449 },
       { score: 1, x: 376, y: 466 },
       { score: 3, x: 502, y: 498 },
-      { score: 2, x: 538, y: 591 }, { score: 2, x: 475, y: 601 },
-      { score: 2, x: 511, y: 703 }, { score: 2, x: 632, y: 704 },
-      { score: 2, x: 572, y: 810 }, { score: 2, x: 458, y: 830 },
+      { score: 2, x: 538, y: 591 },
+      { score: 2, x: 475, y: 601 },
+      { score: 2, x: 511, y: 703 },
+      { score: 2, x: 632, y: 704 },
+      { score: 2, x: 572, y: 810 },
+      { score: 2, x: 458, y: 830 },
       { score: 2, x: 622, y: 851 }
     ]
   }
 ];
 
 // ====== STORAGE ======
-const KEY_STATE = "rh_state_full_qr_v2";
-
-// ====== GLOBALS ======
-let staffUnlocked = false;
-let sessionEnded = false;
-let timerTick = null;
-let undoStack = [];
-let autoLockTimer = null;
+const KEY_STATE = "rh_state_full_v1";
 
 // ====== DOM ======
 const navScoreboard = $("navScoreboard");
@@ -150,6 +153,8 @@ const pageGames = $("pageGames");
 const pageAllGames = $("pageAllGames");
 
 const unlockBtn = $("unlockBtn");
+const kioskBtn = $("kioskBtn");
+
 const pinModal = $("pinModal");
 const pinInput = $("pinInput");
 const pinOkBtn = $("pinOkBtn");
@@ -173,15 +178,19 @@ const missOnBoardBtn = $("missOnBoardBtn");
 const gameImage = $("gameImage");
 const overlay = $("overlay");
 const scoreboardEl = $("scoreboard");
+const statusText = $("statusText");
 
 const teamModeBtn = $("teamModeBtn");
-const kioskBtn = $("kioskBtn");
+const startNewGameBtn = $("startNewGameBtn");
 
 const sessionMinutes = $("sessionMinutes");
 const startTimerBtn = $("startTimerBtn");
 const stopTimerBtn = $("stopTimerBtn");
 const timerLabel = $("timerLabel");
 const laneLabel = $("laneLabel");
+
+const idleOverlay = $("idleOverlay");
+const idleLane = $("idleLane");
 
 const sessionEndedOverlay = $("sessionEndedOverlay");
 const newSessionBtn = $("newSessionBtn");
@@ -190,14 +199,12 @@ const exportPngBtn = $("exportPngBtn");
 const emailResultsBtn = $("emailResultsBtn");
 const customerEmailInput = $("customerEmail");
 
-const startNewGameBtn = $("startNewGameBtn");
-
-// Idle attract
-const idleOverlay = $("idleOverlay");
-const idleLane = $("idleLane");
-
-// Optional
-const statusText = $("statusText");
+// ====== GLOBALS ======
+let staffUnlocked = false;
+let sessionEnded = false;
+let timerTick = null;
+let undoStack = [];
+let autoLockTimer = null;
 
 // ====== STATE ======
 let state = loadState() ?? {
@@ -217,20 +224,15 @@ let state = loadState() ?? {
   throws: []
 };
 
-// ====== BOOT ======
+// ====== VIEWER MODE (QR results viewer) ======
 boot();
 
 async function boot() {
-  // Viewer mode (customers phone)
   if (isViewerMode()) {
-    // If someone opened ?view=1 without hash data, show safe exit
-    const hasData = (window.location.hash || "").includes("#d=");
-    if (!hasData) return renderViewerErrorWithExit();
-    renderResultsViewerFromUrl();
-    return;
+    return renderResultsViewerFromUrl();
   }
 
-  // Populate dropdown
+  // Populate game dropdown
   gameSelect.innerHTML = GAMES.map(g => `<option value="${g.id}">${g.name}</option>`).join("");
   gameSelect.value = state.gameId;
 
@@ -256,10 +258,8 @@ async function boot() {
   showPage("scoreboard");
   setStaffUnlocked(false);
 
-  // ✅ IMPORTANT FIX:
-  // Idle overlay is clickable to unlock, but it will NEVER cover the topbar
-  // because we keep its z-index BELOW .topbar
   setupIdleOverlayUnlock();
+  updateIdleOverlay();
 
   // Nav
   navScoreboard.addEventListener("click", () => showPage("scoreboard"));
@@ -276,19 +276,6 @@ async function boot() {
   addPlayerBtn.addEventListener("click", () => { addPlayer(); armAutoLock(); });
   applyGameBtn.addEventListener("click", () => { applyGameSettings(); armAutoLock(); });
   teamModeBtn.addEventListener("click", () => { toggleTeamMode(); armAutoLock(); });
-
-  startNewGameBtn.addEventListener("click", () => {
-    if (!staffUnlocked) return;
-    sessionEnded = false;
-    if (sessionEndedOverlay) sessionEndedOverlay.style.display = "none";
-    resetScoreboard();
-    renderTarget();
-    renderScoreboard();
-    updateIdleOverlay();
-    saveState();
-    showPage("scoreboard");
-    armAutoLock();
-  });
 
   // Scoring
   undoBtn.addEventListener("click", undo);
@@ -324,7 +311,20 @@ async function boot() {
     armAutoLock();
   });
 
-  // Exports
+  startNewGameBtn.addEventListener("click", () => {
+    if (!staffUnlocked) return;
+    sessionEnded = false;
+    sessionEndedOverlay.style.display = "none";
+    resetScoreboard();
+    renderTarget();
+    renderScoreboard();
+    updateIdleOverlay();
+    saveState();
+    showPage("scoreboard");
+    armAutoLock();
+  });
+
+  // Export + email
   exportPngBtn.addEventListener("click", () => { exportResultsPng(); armAutoLock(); });
   emailResultsBtn.addEventListener("click", () => { emailResults(); armAutoLock(); });
   customerEmailInput.addEventListener("input", () => {
@@ -332,150 +332,16 @@ async function boot() {
     saveState();
   });
 
-  // QR Results
+  // Add QR results button next to export
   addQrResultsButton();
 
-  // Resume timer
+  // Resume timer if running
   resumeTimerIfNeeded();
-
-  // Show/hide idle overlay correctly
-  updateIdleOverlay();
 }
 
-// ====== IDLE OVERLAY CLICK TO UNLOCK (FIX) ======
-function setupIdleOverlayUnlock() {
-  if (!idleOverlay) return;
-
-  // Ensure it can be clicked
-  idleOverlay.style.pointerEvents = "auto";
-
-  // Tap anywhere on idle overlay opens PIN
-  idleOverlay.addEventListener("click", () => {
-    // Only when locked
-    if (!staffUnlocked) openPinModal();
-  });
-}
-
-// ====== VIEWER MODE ======
 function isViewerMode() {
   const params = new URLSearchParams(window.location.search);
   return params.get("view") === "1";
-}
-
-function renderViewerErrorWithExit() {
-  // Hide staff UI
-  if (navScoreboard) navScoreboard.style.display = "none";
-  if (navGames) navGames.style.display = "none";
-  if (navAllGames) navAllGames.style.display = "none";
-  if (unlockBtn) unlockBtn.style.display = "none";
-  if (pinModal) pinModal.style.display = "none";
-  if (idleOverlay) idleOverlay.style.display = "none";
-
-  if (pageGames) pageGames.style.display = "none";
-  if (pageAllGames) pageAllGames.style.display = "none";
-  if (pageScoreboard) pageScoreboard.style.display = "";
-
-  scoreboardEl.innerHTML = `
-    <div class="card">
-      <h2>Results Link Missing</h2>
-      <p class="muted">This page was opened in viewer mode but no results were included.</p>
-      <button id="exitViewerBtn">Go Back to Scoring</button>
-    </div>
-  `;
-
-  const btn = document.getElementById("exitViewerBtn");
-  btn.addEventListener("click", () => {
-    // remove view=1 and hash
-    const base = `${window.location.origin}${window.location.pathname}`;
-    window.location.href = base;
-  });
-}
-
-function renderResultsViewerFromUrl() {
-  if (navScoreboard) navScoreboard.style.display = "none";
-  if (navGames) navGames.style.display = "none";
-  if (navAllGames) navAllGames.style.display = "none";
-  if (unlockBtn) unlockBtn.style.display = "none";
-  if (pinModal) pinModal.style.display = "none";
-  if (idleOverlay) idleOverlay.style.display = "none";
-  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "none";
-
-  if (pageGames) pageGames.style.display = "none";
-  if (pageAllGames) pageAllGames.style.display = "none";
-  if (pageScoreboard) pageScoreboard.style.display = "";
-
-  const targetCard = document.querySelector(".targetCard");
-  if (targetCard) targetCard.style.display = "none";
-
-  const hash = window.location.hash || "";
-  const m = hash.match(/#d=([^&]+)/);
-  if (!m) return renderViewerErrorWithExit();
-
-  let payload;
-  try {
-    payload = JSON.parse(fromB64Unicode(decodeURIComponent(m[1])));
-  } catch {
-    scoreboardEl.innerHTML = `<div class="card"><h2>Results</h2><p class="muted">Invalid results link.</p></div>`;
-    return;
-  }
-
-  const lane = escapeHtml(payload.lane || "");
-  const game = escapeHtml(payload.game || "");
-  const rounds = payload.rounds ?? "-";
-  const throwsPerRound = payload.throwsPerRound ?? "-";
-  const playedAt = escapeHtml(payload.playedAt || "");
-
-  const players = Array.isArray(payload.players) ? payload.players : [];
-  const teams = payload.teamTotals ? Object.entries(payload.teamTotals).sort((a,b)=>b[1]-a[1]) : [];
-
-  const teamHtml = payload.teamTotals
-    ? `
-      <div class="card" style="margin-top:12px;">
-        <div style="font-weight:900;margin-bottom:8px;">Team Totals</div>
-        ${teams.map(([t, v], i) => {
-          const cls = TEAM_CLASS[t] || "teamA";
-          return `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
-              <div><span class="teamTag ${cls}">${escapeHtml(t)}</span>${i===0 ? " 👑" : ""}</div>
-              <div style="font-weight:900;">${v}</div>
-            </div>
-          `;
-        }).join("")}
-      </div>
-    `
-    : "";
-
-  const rows = players
-    .sort((a,b)=>b.total-a.total)
-    .map((p,i)=>`
-      <tr>
-        <td style="text-align:left;font-weight:900;">${escapeHtml(p.name)}${i===0 ? " 👑" : ""}</td>
-        <td style="text-align:left;">${payload.teamMode ? `<span class="teamTag ${TEAM_CLASS[p.team]||"teamA"}">${escapeHtml(p.team)}</span>` : "-"}</td>
-        <td style="text-align:right;font-weight:900;">${p.total}</td>
-      </tr>
-    `).join("");
-
-  scoreboardEl.innerHTML = `
-    <div class="card">
-      <h2 style="margin:0 0 6px 0;">Rage House Results</h2>
-      <div class="muted">${playedAt ? `Played: ${playedAt} · ` : ""}Lane: ${lane} · Game: ${game} · Rounds: ${rounds} · Throws: ${throwsPerRound}</div>
-      ${teamHtml}
-      <div class="card" style="margin-top:12px;">
-        <div style="font-weight:900;margin-bottom:8px;">Players</div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr>
-              <th style="text-align:left;">Player</th>
-              <th style="text-align:left;">Team</th>
-              <th style="text-align:right;">Total</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      <div class="muted" style="margin-top:10px;">Tip: screenshot this screen to share.</div>
-    </div>
-  `;
 }
 
 // ====== NAV ======
@@ -483,6 +349,10 @@ function showPage(which) {
   pageScoreboard.style.display = which === "scoreboard" ? "" : "none";
   pageGames.style.display = which === "games" ? "" : "none";
   pageAllGames.style.display = which === "allgames" ? "" : "none";
+
+  navScoreboard.classList.toggle("active", which === "scoreboard");
+  navGames.classList.toggle("active", which === "games");
+  navAllGames.classList.toggle("active", which === "allgames");
 }
 
 // ====== STAFF LOCK ======
@@ -515,6 +385,7 @@ function setStaffUnlocked(unlocked) {
   gameSelect.disabled = disabled;
   roundsInput.disabled = disabled;
   throwsInput.disabled = disabled;
+
   newPlayerName.disabled = disabled;
   addPlayerBtn.disabled = disabled;
   applyGameBtn.disabled = disabled;
@@ -527,8 +398,11 @@ function setStaffUnlocked(unlocked) {
   exportPngBtn.disabled = disabled;
   emailResultsBtn.disabled = disabled;
   customerEmailInput.disabled = disabled;
-  startNewGameBtn.disabled = disabled;
 
+  startNewGameBtn.disabled = disabled;
+  newSessionBtn.disabled = disabled;
+
+  // Customer view lock: only scoreboard when locked
   navGames.style.display = unlocked ? "" : "none";
   navAllGames.style.display = unlocked ? "" : "none";
   if (!unlocked) showPage("scoreboard");
@@ -552,18 +426,39 @@ function armAutoLock() {
   }, AUTO_LOCK_MS);
 }
 
+// Idle overlay tap opens PIN (but topbar still clickable)
+function setupIdleOverlayUnlock() {
+  idleOverlay.style.pointerEvents = "auto";
+  idleOverlay.addEventListener("click", () => {
+    if (!staffUnlocked) openPinModal();
+  });
+}
+
+function updateIdleOverlay() {
+  const shouldShow =
+    !staffUnlocked &&
+    !state.sessionRunning &&
+    !anyScoresEntered() &&
+    !sessionEnded;
+
+  idleLane.textContent = state.lane || "";
+  idleOverlay.style.display = shouldShow ? "" : "none";
+}
+
 // ====== TEAM MODE ======
 function ensureTeams() {
   for (const name of state.players) {
     if (!state.playerTeams[name]) state.playerTeams[name] = TEAM_NAMES[0];
   }
 }
+
 function autoBalanceTeams() {
   const names = [...state.players];
   names.forEach((name, i) => {
     state.playerTeams[name] = TEAM_NAMES[i % TEAM_NAMES.length];
   });
 }
+
 function toggleTeamMode() {
   if (!staffUnlocked) return;
   state.teamMode = !state.teamMode;
@@ -611,7 +506,6 @@ function renderPlayersEditor() {
 
     teamSelect.value = state.playerTeams[name] || TEAM_NAMES[0];
     teamSelect.disabled = !staffUnlocked || !state.teamMode;
-
     teamSelect.addEventListener("change", () => {
       state.playerTeams[name] = teamSelect.value;
       saveState();
@@ -674,9 +568,6 @@ function applyGameSettings() {
 
   saveState();
 
-  sessionEnded = false;
-  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "none";
-
   resetScoreboard();
   renderTarget();
   renderScoreboard();
@@ -719,9 +610,11 @@ function anyScoresEntered() {
 function roundTotal(p, r) {
   return state.throws[p][r].reduce((a, b) => a + (b ?? 0), 0);
 }
+
 function gameTotal(p) {
   return state.throws[p].reduce((sum, roundArr) => sum + roundArr.reduce((a, b) => a + (b ?? 0), 0), 0);
 }
+
 function teamTotals() {
   const totals = {};
   for (let i = 0; i < state.players.length; i++) {
@@ -731,6 +624,7 @@ function teamTotals() {
   }
   return totals;
 }
+
 function findNextEmpty() {
   for (let r = 0; r < state.rounds; r++) {
     for (let p = 0; p < state.players.length; p++) {
@@ -757,11 +651,9 @@ function addScore(score) {
   updateIdleOverlay();
 
   const n = findNextEmpty();
-  if (statusText) {
-    statusText.textContent = n
-      ? `Round ${n.r + 1}, Throw ${n.t + 1} — ${state.players[n.p]}`
-      : `Game finished`;
-  }
+  statusText.textContent = n
+    ? `Round ${n.r + 1}, Throw ${n.t + 1} — ${state.players[n.p]}`
+    : `Game finished`;
 }
 
 function undo() {
@@ -773,39 +665,53 @@ function undo() {
   updateIdleOverlay();
 }
 
-// ====== RENDER TARGET ======
+// ====== TARGET RENDER (FIXED SCALING) ======
 function renderTarget() {
   const g = currentGame();
+
   gameImage.src = g.image;
 
-  overlay.innerHTML = "";
-  for (const b of g.buttons) {
-    const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    group.classList.add("scoreBtn");
-    group.dataset.score = String(b.score);
+  gameImage.onload = () => {
+    const w = gameImage.naturalWidth || 1000;
+    const h = gameImage.naturalHeight || 1000;
 
-    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    c.setAttribute("cx", String(b.x));
-    c.setAttribute("cy", String(b.y));
-    c.setAttribute("r", "34");
+    overlay.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    overlay.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    overlay.innerHTML = "";
 
-    const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    t.setAttribute("x", String(b.x));
-    t.setAttribute("y", String(b.y));
-    t.textContent = String(b.score);
+    for (const b of g.buttons) {
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      group.classList.add("scoreBtn");
+      group.dataset.score = String(b.score);
 
-    group.appendChild(c);
-    group.appendChild(t);
-    overlay.appendChild(group);
-  }
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("cx", String(b.x));
+      c.setAttribute("cy", String(b.y));
+      c.setAttribute("r", "44"); // bigger tap target
+
+      const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t.setAttribute("x", String(b.x));
+      t.setAttribute("y", String(b.y));
+      t.textContent = String(b.score);
+
+      group.appendChild(c);
+      group.appendChild(t);
+      overlay.appendChild(group);
+    }
+  };
 }
 
-// ====== RENDER SCOREBOARD ======
+// ====== SCOREBOARD RENDER ======
 function renderScoreboard() {
   ensureTeams();
   const rounds = state.rounds;
   const throwsN = state.throwsPerRound;
   const pCount = state.players.length;
+
+  const next = findNextEmpty();
+  statusText.textContent = next
+    ? `Round ${next.r + 1}, Throw ${next.t + 1} — ${state.players[next.p]}`
+    : `Game finished`;
 
   let html = `<table><thead>`;
 
@@ -856,14 +762,14 @@ function renderScoreboard() {
     html += `
       <div style="margin-top:12px;"></div>
       <div class="card" style="padding:12px;border-radius:14px;background:rgba(0,0,0,0.04);">
-        <div style="font-weight:900;margin-bottom:8px;">Team Totals</div>
+        <div style="font-weight:1000;margin-bottom:8px;">Team Totals</div>
         ${sorted.map(([team,total], i) => {
           const cls = TEAM_CLASS[team] || "teamA";
           const crown = i === 0 ? " 👑" : "";
           return `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
               <div><span class="teamTag ${cls}">${escapeHtml(team)}</span>${crown}</div>
-              <div style="font-weight:900;">${total}</div>
+              <div style="font-weight:1000;">${total}</div>
             </div>
           `;
         }).join("")}
@@ -874,55 +780,12 @@ function renderScoreboard() {
   scoreboardEl.innerHTML = html;
 }
 
-// ====== IDLE / ATTRACT ======
-function updateIdleOverlay() {
-  if (!idleOverlay || !idleLane) return;
-
-  const shouldShow =
-    !staffUnlocked &&
-    !state.sessionRunning &&
-    !anyScoresEntered() &&
-    !sessionEnded;
-
-  idleLane.textContent = state.lane || "";
-  idleOverlay.style.display = shouldShow ? "" : "none";
-}
-
 // ====== TIMER ======
 function renderSessionBar() {
-  if (laneLabel) laneLabel.textContent = state.lane || "";
-  if (!timerLabel) return;
-
+  laneLabel.textContent = state.lane || "";
   timerLabel.textContent = state.sessionRunning && state.sessionEndsAt
     ? `Timer: ${formatTimeLeft(state.sessionEndsAt - Date.now())}`
     : `Timer: --:--`;
-}
-
-function startSessionTimer() {
-  if (!staffUnlocked) return;
-
-  const mins = clampInt(sessionMinutes.value, 1, 180, 60);
-  state.sessionMinutesDefault = mins;
-
-  state.sessionEndsAt = Date.now() + mins * 60 * 1000;
-  state.sessionRunning = true;
-  sessionEnded = false;
-  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "none";
-
-  saveState();
-  startTick();
-  renderSessionBar();
-  updateIdleOverlay();
-}
-
-function stopSessionTimer() {
-  if (!staffUnlocked) return;
-  state.sessionRunning = false;
-  state.sessionEndsAt = null;
-  saveState();
-  stopTick();
-  renderSessionBar();
-  updateIdleOverlay();
 }
 
 function resumeTimerIfNeeded() {
@@ -946,13 +809,41 @@ function stopTick() {
   timerTick = null;
 }
 
+function startSessionTimer() {
+  if (!staffUnlocked) return;
+
+  const mins = clampInt(sessionMinutes.value, 1, 180, 60);
+  state.sessionMinutesDefault = mins;
+
+  state.sessionEndsAt = Date.now() + mins * 60 * 1000;
+  state.sessionRunning = true;
+
+  sessionEnded = false;
+  sessionEndedOverlay.style.display = "none";
+
+  saveState();
+  startTick();
+  renderSessionBar();
+  updateIdleOverlay();
+}
+
+function stopSessionTimer() {
+  if (!staffUnlocked) return;
+  state.sessionRunning = false;
+  state.sessionEndsAt = null;
+  saveState();
+  stopTick();
+  renderSessionBar();
+  updateIdleOverlay();
+}
+
 function endSession() {
   state.sessionRunning = false;
   saveState();
   stopTick();
 
   sessionEnded = true;
-  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "";
+  sessionEndedOverlay.style.display = "";
   showPage("scoreboard");
   renderSessionBar();
   updateIdleOverlay();
@@ -967,12 +858,12 @@ async function enterKioskFullscreen() {
   } catch {}
 }
 
-// ====== EXPORT + EMAIL (kept simple) ======
+// ====== EXPORT + EMAIL ======
 async function exportResultsPng() {
   if (!staffUnlocked) return;
 
   if (typeof window.html2canvas !== "function") {
-    alert("Export not available: html2canvas not loaded in index.html.");
+    alert("Export not available: html2canvas not loaded.");
     return;
   }
 
@@ -986,53 +877,54 @@ async function exportResultsPng() {
   const teamSorted = state.teamMode ? Object.entries(teamTotals()).sort((a,b)=>b[1]-a[1]) : [];
 
   const card = document.createElement("div");
-  card.id = "resultsCard";
+  card.style.position = "fixed";
+  card.style.left = "-99999px";
+  card.style.top = "0";
+  card.style.width = "900px";
+  card.style.padding = "18px";
+  card.style.background = "#fff";
+  card.style.borderRadius = "18px";
+  card.style.fontFamily = "system-ui, -apple-system, Segoe UI, Roboto";
   card.innerHTML = `
-    <h1>Rage House Results</h1>
-    <div class="sub">
-      <span class="muted">Lane:</span> ${escapeHtml(state.lane)} ·
-      <span class="muted">Game:</span> ${escapeHtml(g.name)} ·
-      <span class="muted">Rounds:</span> ${state.rounds} ·
-      <span class="muted">Throws:</span> ${state.throwsPerRound}
+    <h1 style="margin:0 0 8px 0;">Rage House Results</h1>
+    <div style="color:#6b7280;font-weight:800;margin-bottom:12px;">
+      Lane: ${escapeHtml(state.lane)} · Game: ${escapeHtml(g.name)} · Rounds: ${state.rounds} · Throws: ${state.throwsPerRound}
     </div>
 
     ${state.teamMode ? `
-      <h2 style="margin: 18px 0 10px 0; font-size: 26px;">Team Totals</h2>
-      <table>
-        <thead><tr><th align="left">Team</th><th align="right">Total</th></tr></thead>
+      <h2 style="margin: 14px 0 8px 0;">Team Totals</h2>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr><th style="text-align:left;">Team</th><th style="text-align:right;">Total</th></tr></thead>
         <tbody>
           ${teamSorted.map(([team,total], i)=>`
             <tr>
-              <td>${escapeHtml(team)}${i===0 ? " 👑" : ""}</td>
-              <td align="right"><strong>${total}</strong></td>
+              <td style="padding:6px 0;">${escapeHtml(team)}${i===0 ? " 👑" : ""}</td>
+              <td style="padding:6px 0;text-align:right;font-weight:1000;">${total}</td>
             </tr>
           `).join("")}
         </tbody>
       </table>
     ` : ""}
 
-    <h2 style="margin: 22px 0 10px 0; font-size: 26px;">Players</h2>
-    <table>
-      <thead><tr><th align="left">Player</th><th align="left">Team</th><th align="right">Total</th></tr></thead>
+    <h2 style="margin: 16px 0 8px 0;">Players</h2>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr><th style="text-align:left;">Player</th><th style="text-align:left;">Team</th><th style="text-align:right;">Total</th></tr></thead>
       <tbody>
         ${players.map((p,i)=>`
           <tr>
-            <td>${escapeHtml(p.name)}${i===0 ? " 👑" : ""}</td>
-            <td>${state.teamMode ? escapeHtml(p.team) : "-"}</td>
-            <td align="right"><strong>${p.total}</strong></td>
+            <td style="padding:6px 0;font-weight:1000;">${escapeHtml(p.name)}${i===0 ? " 👑" : ""}</td>
+            <td style="padding:6px 0;">${state.teamMode ? escapeHtml(p.team) : "-"}</td>
+            <td style="padding:6px 0;text-align:right;font-weight:1000;">${p.total}</td>
           </tr>
         `).join("")}
       </tbody>
     </table>
   `;
 
-  card.style.position = "fixed";
-  card.style.left = "-99999px";
-  card.style.top = "0";
   document.body.appendChild(card);
 
   try {
-    const canvas = await window.html2canvas(card, { scale: 2, backgroundColor: null });
+    const canvas = await window.html2canvas(card, { scale: 2 });
     const dataUrl = canvas.toDataURL("image/png");
 
     const a = document.createElement("a");
@@ -1083,26 +975,25 @@ function buildResultsText() {
 // ====== QR RESULTS ======
 function addQrResultsButton() {
   if (!exportPngBtn) return;
-  if (document.getElementById("showQrBtn")) return;
 
   const btn = document.createElement("button");
-  btn.id = "showQrBtn";
   btn.className = "btnGhost";
   btn.textContent = "Show QR Results";
-  btn.disabled = !staffUnlocked;
+  btn.disabled = true;
+
+  exportPngBtn.parentElement.insertBefore(btn, emailResultsBtn);
+
+  const originalSet = setStaffUnlocked;
+  setStaffUnlocked = function (unlocked) {
+    originalSet(unlocked);
+    btn.disabled = !unlocked;
+  };
+
   btn.addEventListener("click", async () => {
     if (!staffUnlocked) return;
     armAutoLock();
     await showQrModal();
   });
-
-  exportPngBtn.parentElement?.insertBefore(btn, emailResultsBtn);
-
-  const _set = setStaffUnlocked;
-  setStaffUnlocked = function (unlocked) {
-    _set(unlocked);
-    btn.disabled = !unlocked;
-  };
 }
 
 function buildSharePayload() {
@@ -1160,7 +1051,8 @@ async function showQrModal() {
   h.style.margin = "0 0 8px 0";
 
   const p = document.createElement("div");
-  p.className = "muted";
+  p.style.color = "#6b7280";
+  p.style.fontWeight = "800";
   p.style.marginBottom = "12px";
   p.textContent = "Customers can scan this QR code to view results on their phone.";
 
@@ -1177,6 +1069,9 @@ async function showQrModal() {
   urlBox.readOnly = true;
   urlBox.style.width = "100%";
   urlBox.style.marginTop = "8px";
+  urlBox.style.padding = "10px";
+  urlBox.style.borderRadius = "12px";
+  urlBox.style.border = "1px solid rgba(0,0,0,0.12)";
 
   const row = document.createElement("div");
   row.style.display = "flex";
@@ -1221,77 +1116,99 @@ async function showQrModal() {
   if (QR && typeof QR.toCanvas === "function") {
     await QR.toCanvas(qrCanvas, shareUrl, { width: 260, margin: 1 });
   } else {
-    qrWrap.innerHTML = `<div class="muted">QR failed to load. Use Copy Link.</div>`;
+    qrWrap.innerHTML = `<div style="color:#6b7280;font-weight:800;">QR failed to load. Use Copy Link.</div>`;
   }
 }
 
-// ====== TIMER ======
-function resumeTimerIfNeeded() {
-  if (state.sessionRunning && state.sessionEndsAt) {
-    if (Date.now() >= state.sessionEndsAt) endSession();
-    else { startTick(); renderSessionBar(); }
-  } else renderSessionBar();
-}
-function startTick() {
-  stopTick();
-  timerTick = setInterval(() => {
-    if (!state.sessionRunning || !state.sessionEndsAt) return;
-    renderSessionBar();
-    if (state.sessionEndsAt - Date.now() <= 0) endSession();
-  }, 250);
-}
-function stopTick() {
-  if (timerTick) clearInterval(timerTick);
-  timerTick = null;
-}
-function endSession() {
-  state.sessionRunning = false;
-  saveState();
-  stopTick();
+// ====== RESULTS VIEWER (PHONE) ======
+function renderResultsViewerFromUrl() {
+  // Hide sidebar + topbar
+  document.querySelector(".topbar").style.display = "none";
+  document.querySelector(".sidebar").style.display = "none";
+  document.querySelector(".layout").style.gridTemplateColumns = "1fr";
 
-  sessionEnded = true;
-  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "";
-  showPage("scoreboard");
-  renderSessionBar();
-  updateIdleOverlay();
-}
+  const hash = window.location.hash || "";
+  const m = hash.match(/#d=([^&]+)/);
+  if (!m) {
+    pageScoreboard.style.display = "";
+    pageGames.style.display = "none";
+    pageAllGames.style.display = "none";
+    scoreboardEl.innerHTML = `<div class="card"><h2>Results</h2><p class="muted">Invalid results link.</p></div>`;
+    return;
+  }
 
-// ====== LANE LABEL / TIMER LABEL ======
-function renderSessionBar() {
-  if (laneLabel) laneLabel.textContent = state.lane || "";
-  if (!timerLabel) return;
+  let payload;
+  try {
+    payload = JSON.parse(fromB64Unicode(decodeURIComponent(m[1])));
+  } catch {
+    scoreboardEl.innerHTML = `<div class="card"><h2>Results</h2><p class="muted">Invalid results data.</p></div>`;
+    return;
+  }
 
-  timerLabel.textContent = state.sessionRunning && state.sessionEndsAt
-    ? `Timer: ${formatTimeLeft(state.sessionEndsAt - Date.now())}`
-    : `Timer: --:--`;
-}
+  const lane = escapeHtml(payload.lane || "");
+  const game = escapeHtml(payload.game || "");
+  const rounds = payload.rounds ?? "-";
+  const throwsPerRound = payload.throwsPerRound ?? "-";
+  const playedAt = escapeHtml(payload.playedAt || "");
 
-// ====== START/STOP TIMER ======
-function startSessionTimer() {
-  if (!staffUnlocked) return;
+  const players = Array.isArray(payload.players) ? payload.players : [];
+  const teams = payload.teamTotals ? Object.entries(payload.teamTotals).sort((a,b)=>b[1]-a[1]) : [];
 
-  const mins = clampInt(sessionMinutes.value, 1, 180, 60);
-  state.sessionMinutesDefault = mins;
+  const teamHtml = payload.teamTotals
+    ? `
+      <div class="card" style="margin-top:12px;">
+        <div style="font-weight:1000;margin-bottom:8px;">Team Totals</div>
+        ${teams.map(([t, v], i) => {
+          const cls = TEAM_CLASS[t] || "teamA";
+          return `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+              <div><span class="teamTag ${cls}">${escapeHtml(t)}</span>${i===0 ? " 👑" : ""}</div>
+              <div style="font-weight:1000;">${v}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `
+    : "";
 
-  state.sessionEndsAt = Date.now() + mins * 60 * 1000;
-  state.sessionRunning = true;
-  sessionEnded = false;
-  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "none";
+  const rows = players
+    .sort((a,b)=>b.total-a.total)
+    .map((p,i)=>`
+      <tr>
+        <td style="text-align:left;font-weight:1000;">${escapeHtml(p.name)}${i===0 ? " 👑" : ""}</td>
+        <td style="text-align:left;">${payload.teamMode ? `<span class="teamTag ${TEAM_CLASS[p.team]||"teamA"}">${escapeHtml(p.team)}</span>` : "-"}</td>
+        <td style="text-align:right;font-weight:1000;">${p.total}</td>
+      </tr>
+    `).join("");
 
-  saveState();
-  startTick();
-  renderSessionBar();
-  updateIdleOverlay();
-}
+  pageScoreboard.style.display = "";
+  pageGames.style.display = "none";
+  pageAllGames.style.display = "none";
 
-function stopSessionTimer() {
-  if (!staffUnlocked) return;
-  state.sessionRunning = false;
-  state.sessionEndsAt = null;
-  saveState();
-  stopTick();
-  renderSessionBar();
-  updateIdleOverlay();
+  // Hide target
+  document.querySelector(".targetCard").style.display = "none";
+
+  scoreboardEl.innerHTML = `
+    <div class="card">
+      <h2 style="margin:0 0 6px 0;">Rage House Results</h2>
+      <div class="muted">${playedAt ? `Played: ${playedAt} · ` : ""}Lane: ${lane} · Game: ${game} · Rounds: ${rounds} · Throws: ${throwsPerRound}</div>
+      ${teamHtml}
+      <div class="card" style="margin-top:12px;">
+        <div style="font-weight:1000;margin-bottom:8px;">Players</div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Player</th>
+              <th style="text-align:left;">Team</th>
+              <th style="text-align:right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="muted" style="margin-top:10px;">Tip: screenshot this screen to share.</div>
+    </div>
+  `;
 }
 
 // ====== SAVE/LOAD ======
