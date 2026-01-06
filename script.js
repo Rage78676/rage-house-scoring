@@ -271,6 +271,8 @@ function setStaffUnlocked(unlocked) {
   unlockBtn.textContent = unlocked ? "🔓 Staff Unlocked" : "🔒 Staff Locked";
 
   const disabled = !unlocked;
+
+  /* Disable staff-only controls */
   laneSelect.disabled = disabled;
   gameSelect.disabled = disabled;
   roundsInput.disabled = disabled;
@@ -279,7 +281,18 @@ function setStaffUnlocked(unlocked) {
   addPlayerBtn.disabled = disabled;
   applyGameBtn.disabled = disabled;
 
+  /* 🔒 LOCK CUSTOMER VIEW */
+  navGames.style.display = unlocked ? "" : "none";
+  navAllGames.style.display = unlocked ? "" : "none";
+
+  /* Force customers onto Scoreboard */
+  if (!unlocked) {
+    showPage("scoreboard");
+  }
+
   renderPlayersEditor();
+}
+
 }
 
 // ---------- PLAYERS ----------
