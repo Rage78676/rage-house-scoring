@@ -176,7 +176,7 @@ tr.activeRow td.stickyLeft { font-weight: 900; color:#1d6fff; }
 /* Score number */
 .scoreBtn text {
   font-weight: 900;
-  fill: #111;
+ fill: #ffffff;
   font-size: 30px;              /* bigger number */
   text-anchor: middle;
   dominant-baseline: middle;
