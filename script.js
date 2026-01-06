@@ -1,26 +1,13 @@
 /*********************************
  * Rage House Scoring (Local-only)
- * FULL BUILD:
- * - Staff lock with PIN + auto-lock (30s)
- * - Customer-only scoreboard view
- * - Unlimited players
- * - Team mode + team colours + auto-balance
- * - Custom rounds + throws
- * - Click numbers on image to score
- * - Session timer + auto shutoff
- * - Start New Game button (clear scores, keep teams)
- * - Idle attract screen (lane + logo)
- * - Kiosk fullscreen
- * - Export results PNG (Instagram)
- * - Email results (mailto draft)
+ * FULL BUILD + QR Results Viewer (NO lane URLs)
  *********************************/
 
 // ====== CHANGE THIS PIN ======
 const STAFF_PIN = "1234";
 
 // ====== AUTO-LOCK ======
-const AUTO_LOCK_MS = 30_000;
-let autoLockTimer = null;
+const AUTO_LOCK_MS = 30_000; // 30 seconds
 
 // ====== TEAM CONFIG ======
 const TEAM_NAMES = ["Team A", "Team B", "Team C", "Team D"];
@@ -50,6 +37,28 @@ function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[c]));
+}
+
+// Base64 helpers that survive emojis
+function toB64Unicode(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+function fromB64Unicode(b64) {
+  return decodeURIComponent(escape(atob(b64)));
+}
+
+// ====== QR LIB LOADER ======
+async function ensureQrLib() {
+  if (window.QRCode || window.qrcode) return true;
+  const src = "https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
+  await new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+  return true;
 }
 
 // ====== DARTS BUTTONS ======
@@ -118,32 +127,16 @@ const GAMES = [
 ];
 
 // ====== STORAGE ======
-const KEY_STATE = "rh_state_full_v1";
+const KEY_STATE = "rh_state_full_qr_nolane_v1";
 
-// ====== STATE ======
+// ====== GLOBALS ======
 let staffUnlocked = false;
 let sessionEnded = false;
 let timerTick = null;
 let undoStack = [];
+let autoLockTimer = null;
 
-let state = loadState() ?? {
-  lane: "Lane 1",
-  gameId: GAMES[0].id,
-  rounds: 3,
-  throwsPerRound: 7,
-  players: ["Player 1", "Player 2"],
-  playerTeams: {},
-  teamMode: true,
-
-  sessionMinutesDefault: 60,
-  sessionEndsAt: null,
-  sessionRunning: false,
-
-  customerEmail: "",
-  throws: []
-};
-
-// ====== DOM (must exist in your index.html) ======
+// ====== DOM ======
 const navScoreboard = $("navScoreboard");
 const navGames = $("navGames");
 const navAllGames = $("navAllGames");
@@ -177,7 +170,6 @@ const gameImage = $("gameImage");
 const overlay = $("overlay");
 const scoreboardEl = $("scoreboard");
 
-// Extras
 const teamModeBtn = $("teamModeBtn");
 const kioskBtn = $("kioskBtn");
 
@@ -186,6 +178,7 @@ const startTimerBtn = $("startTimerBtn");
 const stopTimerBtn = $("stopTimerBtn");
 const timerLabel = $("timerLabel");
 const laneLabel = $("laneLabel");
+
 const sessionEndedOverlay = $("sessionEndedOverlay");
 const newSessionBtn = $("newSessionBtn");
 
@@ -199,13 +192,37 @@ const startNewGameBtn = $("startNewGameBtn");
 const idleOverlay = $("idleOverlay");
 const idleLane = $("idleLane");
 
-// Optional elements (won’t break if missing)
+// Optional
 const statusText = $("statusText");
 
-// ====== INIT ======
-init();
+// ====== STATE ======
+let state = loadState() ?? {
+  lane: "Lane 1",
+  gameId: GAMES[0].id,
+  rounds: 3,
+  throwsPerRound: 7,
+  players: ["Player 1", "Player 2"],
+  playerTeams: {},
+  teamMode: true,
 
-function init() {
+  sessionMinutesDefault: 60,
+  sessionEndsAt: null,
+  sessionRunning: false,
+
+  customerEmail: "",
+  throws: []
+};
+
+// ====== BOOT ======
+boot();
+
+async function boot() {
+  // Results viewer mode (customers on phone)
+  if (isViewerMode()) {
+    renderResultsViewerFromUrl();
+    return;
+  }
+
   // Populate game dropdown
   gameSelect.innerHTML = GAMES.map(g => `<option value="${g.id}">${g.name}</option>`).join("");
   gameSelect.value = state.gameId;
@@ -222,9 +239,7 @@ function init() {
   ensureTeams();
   if (state.teamMode) autoBalanceTeams();
 
-  if (!Array.isArray(state.throws) || state.throws.length === 0) {
-    resetScoreboard();
-  }
+  if (!Array.isArray(state.throws) || state.throws.length === 0) resetScoreboard();
 
   renderPlayersEditor();
   renderTarget();
@@ -246,12 +261,11 @@ function init() {
   pinOkBtn.addEventListener("click", tryUnlock);
   pinInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
 
-  // Staff controls
+  // Staff controls (reset auto-lock whenever used)
   addPlayerBtn.addEventListener("click", () => { addPlayer(); armAutoLock(); });
   applyGameBtn.addEventListener("click", () => { applyGameSettings(); armAutoLock(); });
   teamModeBtn.addEventListener("click", () => { toggleTeamMode(); armAutoLock(); });
 
-  // Start New Game (clear scores only)
   startNewGameBtn.addEventListener("click", () => {
     if (!staffUnlocked) return;
     sessionEnded = false;
@@ -282,11 +296,10 @@ function init() {
   // Kiosk
   kioskBtn.addEventListener("click", enterKioskFullscreen);
 
-  // Timer controls
+  // Timer
   startTimerBtn.addEventListener("click", () => { startSessionTimer(); armAutoLock(); });
   stopTimerBtn.addEventListener("click", () => { stopSessionTimer(); armAutoLock(); });
 
-  // End overlay: new session
   newSessionBtn.addEventListener("click", () => {
     if (!staffUnlocked) return;
     sessionEnded = false;
@@ -308,8 +321,114 @@ function init() {
     saveState();
   });
 
-  // Resume timer if running
+  // QR Results button
+  addQrResultsButton();
+
+  // Resume timer
   resumeTimerIfNeeded();
+}
+
+// ====== VIEWER MODE (customers on phone) ======
+function isViewerMode() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("view") === "1";
+}
+
+function renderResultsViewerFromUrl() {
+  // Hide staff UI
+  if (navScoreboard) navScoreboard.style.display = "none";
+  if (navGames) navGames.style.display = "none";
+  if (navAllGames) navAllGames.style.display = "none";
+  if (unlockBtn) unlockBtn.style.display = "none";
+  if (pinModal) pinModal.style.display = "none";
+  if (idleOverlay) idleOverlay.style.display = "none";
+  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "none";
+
+  // show only scoreboard page
+  if (pageGames) pageGames.style.display = "none";
+  if (pageAllGames) pageAllGames.style.display = "none";
+  if (pageScoreboard) pageScoreboard.style.display = "";
+
+  // Hide target + controls if present
+  const targetCard = document.querySelector(".targetCard");
+  if (targetCard) targetCard.style.display = "none";
+
+  const hash = window.location.hash || "";
+  const m = hash.match(/#d=([^&]+)/);
+  if (!m) {
+    scoreboardEl.innerHTML = `<div class="card"><h2>Results</h2><p class="muted">No results found.</p></div>`;
+    return;
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(fromB64Unicode(decodeURIComponent(m[1])));
+  } catch {
+    scoreboardEl.innerHTML = `<div class="card"><h2>Results</h2><p class="muted">Invalid results link.</p></div>`;
+    return;
+  }
+
+  // Render read-only results
+  const lane = escapeHtml(payload.lane || "");
+  const game = escapeHtml(payload.game || "");
+  const rounds = payload.rounds ?? "-";
+  const throwsPerRound = payload.throwsPerRound ?? "-";
+  const playedAt = escapeHtml(payload.playedAt || "");
+
+  const players = Array.isArray(payload.players) ? payload.players : [];
+  const teams = payload.teamTotals ? Object.entries(payload.teamTotals).sort((a,b)=>b[1]-a[1]) : [];
+
+  const teamHtml = payload.teamTotals
+    ? `
+      <div class="card" style="margin-top:12px;">
+        <div style="font-weight:900;margin-bottom:8px;">Team Totals</div>
+        ${teams.map(([t, v], i) => {
+          const cls = TEAM_CLASS[t] || "teamA";
+          return `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+              <div><span class="teamTag ${cls}">${escapeHtml(t)}</span>${i===0 ? " 👑" : ""}</div>
+              <div style="font-weight:900;">${v}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `
+    : "";
+
+  const rows = players
+    .sort((a,b)=>b.total-a.total)
+    .map((p,i)=>`
+      <tr>
+        <td style="text-align:left;font-weight:900;">${escapeHtml(p.name)}${i===0 ? " 👑" : ""}</td>
+        <td style="text-align:left;">${payload.teamMode ? `<span class="teamTag ${TEAM_CLASS[p.team]||"teamA"}">${escapeHtml(p.team)}</span>` : "-"}</td>
+        <td style="text-align:right;font-weight:900;">${p.total}</td>
+      </tr>
+    `).join("");
+
+  scoreboardEl.innerHTML = `
+    <div class="card">
+      <h2 style="margin:0 0 6px 0;">Rage House Results</h2>
+      <div class="muted">${playedAt ? `Played: ${playedAt} · ` : ""}Lane: ${lane} · Game: ${game} · Rounds: ${rounds} · Throws: ${throwsPerRound}</div>
+
+      ${teamHtml}
+
+      <div class="card" style="margin-top:12px;">
+        <div style="font-weight:900;margin-bottom:8px;">Players</div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Player</th>
+              <th style="text-align:left;">Team</th>
+              <th style="text-align:right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+
+      <div class="muted" style="margin-top:10px;">Tip: screenshot this screen to share.</div>
+    </div>
+  `;
 }
 
 // ====== NAV ======
@@ -326,9 +445,8 @@ function openPinModal() {
   pinModal.style.display = "";
   setTimeout(() => pinInput.focus(), 50);
 }
-function closePinModal() {
-  pinModal.style.display = "none";
-}
+function closePinModal() { pinModal.style.display = "none"; }
+
 function tryUnlock() {
   if (pinInput.value === STAFF_PIN) {
     setStaffUnlocked(true);
@@ -346,7 +464,6 @@ function setStaffUnlocked(unlocked) {
 
   const disabled = !unlocked;
 
-  // Disable staff-only controls
   laneSelect.disabled = disabled;
   gameSelect.disabled = disabled;
   roundsInput.disabled = disabled;
@@ -354,35 +471,31 @@ function setStaffUnlocked(unlocked) {
   newPlayerName.disabled = disabled;
   addPlayerBtn.disabled = disabled;
   applyGameBtn.disabled = disabled;
+
   teamModeBtn.disabled = disabled;
   sessionMinutes.disabled = disabled;
   startTimerBtn.disabled = disabled;
   stopTimerBtn.disabled = disabled;
+
   exportPngBtn.disabled = disabled;
   emailResultsBtn.disabled = disabled;
   customerEmailInput.disabled = disabled;
   startNewGameBtn.disabled = disabled;
 
-  // Hide staff pages from customers
   navGames.style.display = unlocked ? "" : "none";
   navAllGames.style.display = unlocked ? "" : "none";
+  if (!unlocked) showPage("scoreboard");
 
-  // Clear auto-lock timer when locking
   if (!unlocked && autoLockTimer) {
     clearTimeout(autoLockTimer);
     autoLockTimer = null;
   }
-
-  // Force customers onto scoreboard
-  if (!unlocked) showPage("scoreboard");
+  if (unlocked) armAutoLock();
 
   renderPlayersEditor();
   updateIdleOverlay();
-
-  if (unlocked) armAutoLock();
 }
 
-// Auto-lock after unlock
 function armAutoLock() {
   if (!staffUnlocked) return;
   if (autoLockTimer) clearTimeout(autoLockTimer);
@@ -399,13 +512,11 @@ function ensureTeams() {
   }
 }
 function autoBalanceTeams() {
-  // round-robin assign across teams
   const names = [...state.players];
   names.forEach((name, i) => {
     state.playerTeams[name] = TEAM_NAMES[i % TEAM_NAMES.length];
   });
 }
-
 function toggleTeamMode() {
   if (!staffUnlocked) return;
   state.teamMode = !state.teamMode;
@@ -434,8 +545,6 @@ function renderPlayersEditor() {
       const newName = input.value.trim() || oldName;
 
       state.players[idx] = newName;
-
-      // preserve team on rename
       state.playerTeams[newName] = state.playerTeams[oldName] ?? TEAM_NAMES[0];
       if (newName !== oldName) delete state.playerTeams[oldName];
 
@@ -533,7 +642,7 @@ function currentGame() {
   return GAMES.find(g => g.id === state.gameId) ?? GAMES[0];
 }
 
-// ====== SCOREBOARD DATA ======
+// ====== SCORE DATA ======
 function resetScoreboard() {
   const pCount = state.players.length;
   const rounds = state.rounds;
@@ -560,17 +669,6 @@ function anyScoresEntered() {
   return false;
 }
 
-function findNextEmpty() {
-  for (let r = 0; r < state.rounds; r++) {
-    for (let p = 0; p < state.players.length; p++) {
-      for (let t = 0; t < state.throwsPerRound; t++) {
-        if (state.throws[p][r][t] == null) return { p, r, t };
-      }
-    }
-  }
-  return null;
-}
-
 function roundTotal(p, r) {
   return state.throws[p][r].reduce((a, b) => a + (b ?? 0), 0);
 }
@@ -586,10 +684,19 @@ function teamTotals() {
   }
   return totals;
 }
+function findNextEmpty() {
+  for (let r = 0; r < state.rounds; r++) {
+    for (let p = 0; p < state.players.length; p++) {
+      for (let t = 0; t < state.throwsPerRound; t++) {
+        if (state.throws[p][r][t] == null) return { p, r, t };
+      }
+    }
+  }
+  return null;
+}
 
 function addScore(score) {
   if (sessionEnded) return;
-
   const next = findNextEmpty();
   if (!next) return;
 
@@ -602,7 +709,6 @@ function addScore(score) {
   renderScoreboard();
   updateIdleOverlay();
 
-  // update status text if present
   const n = findNextEmpty();
   if (statusText) {
     statusText.textContent = n
@@ -634,7 +740,7 @@ function renderTarget() {
     const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     c.setAttribute("cx", String(b.x));
     c.setAttribute("cy", String(b.y));
-    c.setAttribute("r", "34"); // visual; tap size handled by CSS
+    c.setAttribute("r", "34");
 
     const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
     t.setAttribute("x", String(b.x));
@@ -650,21 +756,12 @@ function renderTarget() {
 // ====== RENDER SCOREBOARD ======
 function renderScoreboard() {
   ensureTeams();
-
   const rounds = state.rounds;
   const throwsN = state.throwsPerRound;
   const pCount = state.players.length;
 
-  const next = findNextEmpty();
-  if (statusText) {
-    statusText.textContent = next
-      ? `Round ${next.r + 1}, Throw ${next.t + 1} — ${state.players[next.p]}`
-      : `Game finished`;
-  }
-
   let html = `<table><thead>`;
 
-  // Header row 1
   html += `<tr>
     <th class="stickyLeft" rowspan="2">Player</th>`;
 
@@ -674,7 +771,6 @@ function renderScoreboard() {
   html += `<th class="group totalCell" rowspan="2">Total</th>`;
   html += `</tr>`;
 
-  // Header row 2
   html += `<tr>`;
   for (let r = 0; r < rounds; r++) {
     for (let t = 0; t < throwsN; t++) html += `<th class="group">${t + 1}</th>`;
@@ -706,7 +802,6 @@ function renderScoreboard() {
 
   html += `</tbody></table>`;
 
-  // Team totals
   if (state.teamMode) {
     const totals = teamTotals();
     const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
@@ -732,7 +827,7 @@ function renderScoreboard() {
   scoreboardEl.innerHTML = html;
 }
 
-// ====== IDLE / ATTRACT SCREEN ======
+// ====== IDLE / ATTRACT ======
 function updateIdleOverlay() {
   if (!idleOverlay || !idleLane) return;
 
@@ -746,7 +841,7 @@ function updateIdleOverlay() {
   idleOverlay.style.display = shouldShow ? "" : "none";
 }
 
-// ====== SESSION TIMER + AUTO SHUTOFF ======
+// ====== TIMER ======
 function renderSessionBar() {
   if (laneLabel) laneLabel.textContent = state.lane || "";
   if (!timerLabel) return;
@@ -823,65 +918,32 @@ function endSession() {
   updateIdleOverlay();
 }
 
-// ====== KIOSK FULLSCREEN ======
+// ====== KIOSK ======
 async function enterKioskFullscreen() {
   try {
     document.body.classList.add("kioskMode");
     const el = document.documentElement;
     if (el.requestFullscreen) await el.requestFullscreen();
-  } catch (e) {
-    // ignore
-  }
+  } catch {}
 }
 
-// ====== EXPORTS ======
-function getWinnersSummary() {
-  const playerTotals = state.players.map((name, i) => ({
-    name,
-    team: state.playerTeams[name] || TEAM_NAMES[0],
-    total: gameTotal(i)
-  })).sort((a, b) => b.total - a.total);
-
-  const teamTot = state.teamMode ? teamTotals() : null;
-  const teamSorted = teamTot ? Object.entries(teamTot).sort((a, b) => b[1] - a[1]) : [];
-  return { playerTotals, teamSorted };
-}
-
-function buildResultsText() {
-  const g = currentGame();
-  const { playerTotals, teamSorted } = getWinnersSummary();
-
-  let txt = `Rage House Results\n`;
-  txt += `Lane: ${state.lane}\n`;
-  txt += `Game: ${g.name}\n`;
-  txt += `Rounds: ${state.rounds} | Throws per round: ${state.throwsPerRound}\n\n`;
-
-  if (state.teamMode && teamSorted.length) {
-    txt += `Team Totals:\n`;
-    teamSorted.forEach(([team, total], i) => {
-      txt += `${i + 1}. ${team}: ${total}\n`;
-    });
-    txt += `\n`;
-  }
-
-  txt += `Players:\n`;
-  playerTotals.forEach((p, i) => {
-    txt += `${i + 1}. ${p.name}${state.teamMode ? ` (${p.team})` : ""}: ${p.total}\n`;
-  });
-
-  return txt;
-}
-
+// ====== EXPORT PNG + EMAIL ======
 async function exportResultsPng() {
   if (!staffUnlocked) return;
 
   if (typeof window.html2canvas !== "function") {
-    alert("Export not available: html2canvas not loaded. Add the CDN script in index.html.");
+    alert("Export not available: html2canvas not loaded. Make sure index.html includes the html2canvas script.");
     return;
   }
 
   const g = currentGame();
-  const { playerTotals, teamSorted } = getWinnersSummary();
+  const players = state.players.map((name, i) => ({
+    name,
+    team: state.playerTeams[name] || TEAM_NAMES[0],
+    total: gameTotal(i)
+  })).sort((a,b)=>b.total-a.total);
+
+  const teamSorted = state.teamMode ? Object.entries(teamTotals()).sort((a,b)=>b[1]-a[1]) : [];
 
   const card = document.createElement("div");
   card.id = "resultsCard";
@@ -913,7 +975,7 @@ async function exportResultsPng() {
     <table>
       <thead><tr><th align="left">Player</th><th align="left">Team</th><th align="right">Total</th></tr></thead>
       <tbody>
-        ${playerTotals.map((p,i)=>`
+        ${players.map((p,i)=>`
           <tr>
             <td>${escapeHtml(p.name)}${i===0 ? " 👑" : ""}</td>
             <td>${state.teamMode ? escapeHtml(p.team) : "-"}</td>
@@ -953,8 +1015,198 @@ function emailResults() {
   const to = (state.customerEmail || "").trim();
   const subject = encodeURIComponent(`Rage House Results - ${state.lane} - ${currentGame().name}`);
   const body = encodeURIComponent(buildResultsText());
-  const mailto = `mailto:${encodeURIComponent(to)}?subject=${subject}&body=${body}`;
-  window.location.href = mailto;
+  window.location.href = `mailto:${encodeURIComponent(to)}?subject=${subject}&body=${body}`;
+}
+
+function buildResultsText() {
+  const g = currentGame();
+  const players = state.players.map((name, i) => ({
+    name,
+    team: state.playerTeams[name] || TEAM_NAMES[0],
+    total: gameTotal(i)
+  })).sort((a,b)=>b.total-a.total);
+
+  const teams = state.teamMode ? Object.entries(teamTotals()).sort((a,b)=>b[1]-a[1]) : [];
+
+  let txt = `Rage House Results\n`;
+  txt += `Lane: ${state.lane}\n`;
+  txt += `Game: ${g.name}\n`;
+  txt += `Rounds: ${state.rounds} | Throws per round: ${state.throwsPerRound}\n\n`;
+
+  if (state.teamMode && teams.length) {
+    txt += `Team Totals:\n`;
+    teams.forEach(([t,v], i) => txt += `${i+1}. ${t}: ${v}\n`);
+    txt += `\n`;
+  }
+
+  txt += `Players:\n`;
+  players.forEach((p,i) => txt += `${i+1}. ${p.name}${state.teamMode ? ` (${p.team})` : ""}: ${p.total}\n`);
+  return txt;
+}
+
+// ====== QR RESULTS ======
+function addQrResultsButton() {
+  if (!exportPngBtn) return;
+  if (document.getElementById("showQrBtn")) return;
+
+  const btn = document.createElement("button");
+  btn.id = "showQrBtn";
+  btn.className = "btnGhost";
+  btn.textContent = "Show QR Results";
+  btn.disabled = !staffUnlocked;
+  btn.addEventListener("click", async () => {
+    if (!staffUnlocked) return;
+    armAutoLock();
+    await showQrModal();
+  });
+
+  exportPngBtn.parentElement?.insertBefore(btn, emailResultsBtn);
+
+  const _set = setStaffUnlocked;
+  setStaffUnlocked = function (unlocked) {
+    _set(unlocked);
+    btn.disabled = !unlocked;
+  };
+}
+
+function buildSharePayload() {
+  const g = currentGame();
+  const players = state.players.map((name, i) => ({
+    name,
+    team: state.playerTeams[name] || TEAM_NAMES[0],
+    total: gameTotal(i)
+  })).sort((a,b)=>b.total-a.total);
+
+  return {
+    lane: state.lane,
+    game: g.name,
+    rounds: state.rounds,
+    throwsPerRound: state.throwsPerRound,
+    teamMode: !!state.teamMode,
+    teamTotals: state.teamMode ? teamTotals() : null,
+    players,
+    playedAt: new Date().toLocaleString()
+  };
+}
+
+function buildShareUrl() {
+  const payload = buildSharePayload();
+  const b64 = toB64Unicode(JSON.stringify(payload));
+  const base = `${window.location.origin}${window.location.pathname}`;
+  return `${base}?view=1#d=${encodeURIComponent(b64)}`;
+}
+
+async function showQrModal() {
+  await ensureQrLib();
+  const shareUrl = buildShareUrl();
+
+  const overlayDiv = document.createElement("div");
+  overlayDiv.style.position = "fixed";
+  overlayDiv.style.inset = "0";
+  overlayDiv.style.background = "rgba(0,0,0,0.65)";
+  overlayDiv.style.zIndex = "100000";
+  overlayDiv.style.display = "flex";
+  overlayDiv.style.alignItems = "center";
+  overlayDiv.style.justifyContent = "center";
+  overlayDiv.addEventListener("click", (e) => {
+    if (e.target === overlayDiv) overlayDiv.remove();
+  });
+
+  const card = document.createElement("div");
+  card.style.width = "min(520px, 92vw)";
+  card.style.background = "#fff";
+  card.style.borderRadius = "16px";
+  card.style.padding = "16px";
+  card.style.textAlign = "center";
+
+  const h = document.createElement("h2");
+  h.textContent = "Scan to View Results";
+  h.style.margin = "0 0 8px 0";
+
+  const p = document.createElement("div");
+  p.className = "muted";
+  p.style.marginBottom = "12px";
+  p.textContent = "Customers can scan this QR code to view results on their phone.";
+
+  const qrWrap = document.createElement("div");
+  qrWrap.style.display = "flex";
+  qrWrap.style.justifyContent = "center";
+  qrWrap.style.margin = "10px 0 12px 0";
+
+  const qrCanvas = document.createElement("canvas");
+  qrWrap.appendChild(qrCanvas);
+
+  const urlBox = document.createElement("input");
+  urlBox.value = shareUrl;
+  urlBox.readOnly = true;
+  urlBox.style.width = "100%";
+  urlBox.style.marginTop = "8px";
+
+  const row = document.createElement("div");
+  row.style.display = "flex";
+  row.style.gap = "10px";
+  row.style.justifyContent = "center";
+  row.style.marginTop = "12px";
+  row.style.flexWrap = "wrap";
+
+  const copyBtn = document.createElement("button");
+  copyBtn.textContent = "Copy Link";
+  copyBtn.className = "btnGhost";
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => (copyBtn.textContent = "Copy Link"), 1200);
+    } catch {
+      urlBox.select();
+      document.execCommand("copy");
+    }
+    armAutoLock();
+  });
+
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "Close";
+  closeBtn.className = "btnDanger";
+  closeBtn.addEventListener("click", () => overlayDiv.remove());
+
+  row.appendChild(copyBtn);
+  row.appendChild(closeBtn);
+
+  card.appendChild(h);
+  card.appendChild(p);
+  card.appendChild(qrWrap);
+  card.appendChild(urlBox);
+  card.appendChild(row);
+
+  overlayDiv.appendChild(card);
+  document.body.appendChild(overlayDiv);
+
+  const QR = window.QRCode || window.qrcode;
+  if (QR && typeof QR.toCanvas === "function") {
+    await QR.toCanvas(qrCanvas, shareUrl, { width: 260, margin: 1 });
+  } else {
+    qrWrap.innerHTML = `<div class="muted">QR failed to load. Use Copy Link.</div>`;
+  }
+}
+
+// ====== TIMER TICK ======
+function resumeTimerIfNeeded() {
+  if (state.sessionRunning && state.sessionEndsAt) {
+    if (Date.now() >= state.sessionEndsAt) endSession();
+    else { startTick(); renderSessionBar(); }
+  } else renderSessionBar();
+}
+function startTick() {
+  stopTick();
+  timerTick = setInterval(() => {
+    if (!state.sessionRunning || !state.sessionEndsAt) return;
+    renderSessionBar();
+    if (state.sessionEndsAt - Date.now() <= 0) endSession();
+  }, 250);
+}
+function stopTick() {
+  if (timerTick) clearInterval(timerTick);
+  timerTick = null;
 }
 
 // ====== SAVE / LOAD ======
