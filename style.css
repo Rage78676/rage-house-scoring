@@ -154,11 +154,45 @@ tr.activeRow td.stickyLeft { font-weight: 900; color:#1d6fff; }
 .btnDanger { background:#d92d20; color:#fff; }
 .full { width: 100%; }
 
-/* Clickable score “number” buttons */
-.scoreBtn { cursor:pointer; user-select:none; }
-.scoreBtn circle { fill: rgba(29,111,255,.13); stroke: rgba(29,111,255,.5); stroke-width: 2; }
-.scoreBtn text { font-weight: 900; fill:#111; font-size: 24px; text-anchor: middle; dominant-baseline: middle; }
-.scoreBtn:hover circle { fill: rgba(29,111,255,.20); }
+/* ================================
+   BIG INVISIBLE SCORING BUTTONS
+   Tablet & venue friendly
+   ================================ */
+
+/* Whole SVG group clickable */
+.scoreBtn {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Large invisible tap area */
+.scoreBtn circle {
+  r: 50; /* 🔴 BIG tap zone (default was ~34) */
+  fill: rgba(29,111,255,0);     /* invisible */
+  stroke: rgba(29,111,255,0);   /* invisible */
+  stroke-width: 0;
+}
+
+/* Score number */
+.scoreBtn text {
+  font-weight: 900;
+  fill: #111;
+  font-size: 30px;              /* bigger number */
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;         /* clicks go to circle */
+}
+
+/* Visual feedback on hover / tap */
+.scoreBtn:hover circle {
+  fill: rgba(29,111,255,0.18);  /* subtle glow */
+}
+
+/* Optional: active tap feedback */
+.scoreBtn:active circle {
+  fill: rgba(29,111,255,0.28);
+}
+
 
 /* Modal */
 .modalBackdrop {
