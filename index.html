@@ -1,211 +1,204 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rage House Scoring</title>
   <link rel="stylesheet" href="style.css" />
-</head>
 
+  <!-- Needed for Export PNG -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
 <body>
 
-  <!-- Top Nav -->
-  <header class="topbar">
-    <div class="brand">
-      <span class="brandTitle">Rage House Scoring</span>
+  <!-- Idle / Attract Screen -->
+  <div id="idleOverlay" class="idleOverlay" style="display:none;">
+    <div class="idleInner">
+      <img id="idleLogo" class="idleLogo" src="images/logo.png" alt="Rage House Logo"
+           onerror="this.style.display='none'"/>
+      <div class="idleLane" id="idleLane">Lane 1</div>
+      <div class="idleHint">Tap anywhere to unlock</div>
     </div>
+  </div>
 
-    <nav class="nav">
-      <button id="navScoreboard" class="navBtn active">Scoreboard</button>
-      <button id="navGames" class="navBtn">Games</button>
-      <button id="navAllGames" class="navBtn">All Games</button>
-    </nav>
-
-    <div class="actions">
-      <button id="unlockBtn" class="navBtn">🔒 Staff Locked</button>
+  <!-- Session End Overlay -->
+  <div id="sessionEndedOverlay" class="sessionEndedOverlay" style="display:none;">
+    <div class="sessionEndedCard">
+      <div class="sessionEndedTitle">Session Finished</div>
+      <div class="muted">Staff only: unlock to start a new session.</div>
+      <button id="newSessionBtn" class="btnPrimary" disabled>Start New Session</button>
     </div>
-  </header>
+  </div>
 
-  <!-- PIN MODAL -->
+  <!-- Staff PIN Modal -->
   <div id="pinModal" class="modal" style="display:none;">
     <div class="modalCard">
       <h2>Staff Unlock</h2>
-      <p class="muted">Enter PIN to unlock staff controls.</p>
-
+      <p class="muted">Enter staff PIN</p>
       <input id="pinInput" type="password" inputmode="numeric" placeholder="PIN" />
-      <div id="pinMsg" class="error"></div>
-
-      <div class="row">
-        <button id="pinOkBtn">Unlock</button>
+      <div id="pinMsg" class="pinMsg"></div>
+      <div class="modalRow">
         <button id="pinCancelBtn" class="btnGhost">Cancel</button>
+        <button id="pinOkBtn" class="btnPrimary">Unlock</button>
       </div>
     </div>
   </div>
 
-  <main class="container">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="laneBar">
+      <div class="laneChip" id="laneLabel">Lane 1</div>
+      <div class="timerChip" id="timerLabel">Timer: --:--</div>
+    </div>
 
-    <!-- SCOREBOARD PAGE -->
-    <section id="pageScoreboard">
+    <div class="topbarRight">
+      <button id="kioskBtn" class="btnGhost">Kiosk Fullscreen</button>
+      <button id="unlockBtn" class="btnPrimary">🔒 Staff Locked</button>
+    </div>
+  </div>
 
-      <!-- Idle / Attract overlay (logo + lane) -->
-      <div id="idleOverlay" class="idleOverlay" style="display:none;">
-        <div class="idleCard">
-          <img id="idleLogo" src="images/logo.png" alt="Rage House Logo" />
-          <div id="idleLane" class="idleLane">Lane 1</div>
-          <div class="idleHint">Staff unlock to start</div>
-          <button id="idleUnlockBtn" style="margin-top:14px;">Staff Unlock</button>
-
-        </div>
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brandTitle">THE RAGE HOUSE</div>
+        <div class="brandSub">Scoring System</div>
       </div>
 
-      <!-- Session bar -->
-      <div id="sessionBar" class="sessionBar">
-        <div><strong id="laneLabel">Lane 1</strong></div>
-        <div id="timerLabel">Timer: --:--</div>
+      <nav class="nav">
+        <button id="navScoreboard" class="navBtn active">Scoreboard</button>
+        <button id="navGames" class="navBtn">Games</button>
+        <button id="navAllGames" class="navBtn">All Games</button>
+      </nav>
+
+      <div class="sideNote muted">
+        Staff controls appear only when unlocked.
       </div>
+    </aside>
 
-      <!-- Session ended overlay -->
-      <div id="sessionEndedOverlay" class="sessionEndedOverlay" style="display:none;">
-        <div class="sessionEndedCard">
-          <h2>Session ended</h2>
-          <p>Staff unlock required to start a new session.</p>
-          <button id="newSessionBtn">Start New Session</button>
-        </div>
-      </div>
+    <!-- Main -->
+    <main class="main">
+      <!-- PAGE: Scoreboard -->
+      <section id="pageScoreboard" class="page">
+        <div class="grid">
+          <!-- Target -->
+          <div class="card targetCard">
+            <div class="cardHeader">
+              <div class="cardTitle">Target</div>
+            </div>
 
-      <!-- Target + scoring -->
-      <div class="grid2">
+            <div class="targetWrap">
+              <img id="gameImage" alt="Game target" />
+              <svg id="overlay"></svg>
+            </div>
 
-        <div class="card targetCard">
-          <div class="cardTitle">Target</div>
-
-          <div class="targetWrap">
-            <img id="gameImage" alt="Game target" />
-            <!-- SVG overlay for clickable score buttons -->
-            <svg id="overlay" class="overlaySvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="controlsRow">
+              <button id="undoBtn" class="btnDark">Undo</button>
+              <button id="missBtn" class="btnGhost">Miss</button>
+              <button id="missOnBoardBtn" class="btnGhost">Miss (On Board)</button>
+            </div>
           </div>
 
-          <div class="row" style="margin-top:12px;">
-            <button id="undoBtn">Undo</button>
-            <button id="missBtn" class="btnGhost">Miss</button>
-            <button id="missOnBoardBtn" class="btnGhost">Miss (On Board)</button>
+          <!-- Scoreboard -->
+          <div class="card">
+            <div class="cardHeader">
+              <div>
+                <div class="cardTitle">Scoreboard</div>
+                <div class="muted" id="statusText"></div>
+              </div>
+
+              <div class="headerRight">
+                <button id="startNewGameBtn" class="btnGhost" disabled>Start New Game</button>
+              </div>
+            </div>
+
+            <div id="scoreboard" class="scoreboard"></div>
           </div>
         </div>
+      </section>
 
-        <div class="card scoreCard">
-          <div class="cardTitle">Scoreboard</div>
-          <div id="statusText" class="muted" style="margin-bottom:10px;"></div>
-          <div id="scoreboard"></div>
-        </div>
+      <!-- PAGE: Games (Staff settings) -->
+      <section id="pageGames" class="page" style="display:none;">
+        <div class="twoCol">
+          <div class="card">
+            <div class="cardHeader">
+              <div class="cardTitle">Game Info (Staff)</div>
+            </div>
 
-      </div>
-    </section>
+            <div class="form">
+              <label>Lane</label>
+              <select id="laneSelect">
+                <option>Lane 1</option>
+                <option>Lane 2</option>
+                <option>Lane 3</option>
+              </select>
 
-    <!-- GAMES PAGE -->
-    <section id="pageGames" style="display:none;">
-      <div class="card">
-        <h2>Game Setup (Staff Only)</h2>
+              <label>Game</label>
+              <select id="gameSelect"></select>
 
-        <div class="row">
-          <div class="field">
-            <label>Lane</label>
-            <select id="laneSelect">
-              <option>Lane 1</option>
-              <option>Lane 2</option>
-              <option>Lane 3</option>
-              <option>Lane 4</option>
-              <option>Lane 5</option>
-              <option>Lane 6</option>
-              <option>Lane 7</option>
-              <option>Lane 8</option>
-            </select>
+              <label>Rounds</label>
+              <input id="roundsInput" type="number" min="1" max="20" />
+
+              <label>Throws Per Round</label>
+              <input id="throwsInput" type="number" min="1" max="30" />
+
+              <label>Session Timer (minutes)</label>
+              <div class="row">
+                <input id="sessionMinutes" type="number" min="1" max="180" />
+                <button id="startTimerBtn" class="btnPrimary" disabled>Start</button>
+                <button id="stopTimerBtn" class="btnGhost" disabled>Stop</button>
+              </div>
+
+              <div class="row">
+                <button id="teamModeBtn" class="btnGhost" disabled>Team Mode: ON</button>
+                <button id="applyGameBtn" class="btnPrimary" disabled>Apply</button>
+              </div>
+
+              <div class="row">
+                <button id="exportPngBtn" class="btnGhost" disabled>Export PNG</button>
+                <button id="emailResultsBtn" class="btnGhost" disabled>Email Results</button>
+              </div>
+
+              <label>Customer Email</label>
+              <input id="customerEmail" type="email" placeholder="customer@email.com"/>
+            </div>
           </div>
 
-          <div class="field">
-            <label>Game</label>
-            <select id="gameSelect"></select>
-          </div>
-        </div>
+          <div class="card">
+            <div class="cardHeader">
+              <div class="cardTitle">Players (Staff)</div>
+            </div>
 
-        <div class="row">
-          <div class="field">
-            <label>Rounds</label>
-            <input id="roundsInput" type="number" min="1" max="20" value="3" />
-          </div>
+            <div id="playersList" class="playersList"></div>
 
-          <div class="field">
-            <label>Throws per Round</label>
-            <input id="throwsInput" type="number" min="1" max="30" value="7" />
-          </div>
-        </div>
+            <div class="row addRow">
+              <input id="newPlayerName" placeholder="Player name" />
+              <button id="addPlayerBtn" class="btnPrimary" disabled>Add</button>
+            </div>
 
-        <div class="row">
-          <button id="applyGameBtn">Apply Game Settings</button>
-          <button id="startNewGameBtn" class="btnGhost">Start New Game (Clear Scores)</button>
-        </div>
-
-        <hr class="sep" />
-
-        <div class="row">
-          <button id="teamModeBtn">Team Mode: OFF</button>
-          <button id="kioskBtn" class="btnGhost">Enter Kiosk (Fullscreen)</button>
-        </div>
-
-        <hr class="sep" />
-
-        <div class="row">
-          <div class="field">
-            <label>Session Timer (minutes)</label>
-            <input id="sessionMinutes" type="number" min="1" max="180" value="60" />
-          </div>
-          <div class="field">
-            <label>&nbsp;</label>
-            <div class="row">
-              <button id="startTimerBtn">Start Timer</button>
-              <button id="stopTimerBtn" class="btnGhost">Stop Timer</button>
+            <div class="muted small">
+              Tip: Team mode auto-balances when you add players.
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="row">
-          <div class="field" style="flex:1;">
-            <label>Customer Email (optional)</label>
-            <input id="customerEmail" type="email" placeholder="customer@email.com" />
+      <!-- PAGE: All Games -->
+      <section id="pageAllGames" class="page" style="display:none;">
+        <div class="card">
+          <div class="cardHeader">
+            <div class="cardTitle">All Games</div>
+            <div class="muted">This is a placeholder screen.</div>
+          </div>
+
+          <div class="muted">
+            (Optional) Later we can store finished games to history and show them here.
           </div>
         </div>
+      </section>
+    </main>
+  </div>
 
-        <div class="row">
-          <button id="exportPngBtn">Export Results PNG (Instagram)</button>
-          <button id="emailResultsBtn" class="btnGhost">Email Results</button>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:14px;">
-        <h2>Players (Staff Only)</h2>
-
-        <div class="row">
-          <input id="newPlayerName" placeholder="New player name" />
-          <button id="addPlayerBtn">Add Player</button>
-        </div>
-
-        <div id="playersList" style="margin-top:10px;"></div>
-        <p class="muted" style="margin-top:10px;">Tip: Team dropdowns only work when Team Mode is ON.</p>
-      </div>
-    </section>
-
-    <!-- ALL GAMES PAGE (optional placeholder) -->
-    <section id="pageAllGames" style="display:none;">
-      <div class="card">
-        <h2>All Games</h2>
-        <p class="muted">This page is reserved for future features (adding custom games, editing hit zones, etc.).</p>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- html2canvas for Instagram export -->
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="script.js"></script>
-
 </body>
 </html>
