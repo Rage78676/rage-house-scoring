@@ -1,177 +1,210 @@
 /*********************************
  * Rage House Scoring (Local-only)
- * - Staff lock with PIN
- * - Up to 10 players
+ * FULL BUILD:
+ * - Staff lock with PIN + auto-lock (30s)
+ * - Customer-only scoreboard view
+ * - Unlimited players
+ * - Team mode + team colours + auto-balance
  * - Custom rounds + throws
- * - Click numbers on image to fill table cells
- * - Local history (per device)
+ * - Click numbers on image to score
+ * - Session timer + auto shutoff
+ * - Start New Game button (clear scores, keep teams)
+ * - Idle attract screen (lane + logo)
+ * - Kiosk fullscreen
+ * - Export results PNG (Instagram)
+ * - Email results (mailto draft)
  *********************************/
 
 // ====== CHANGE THIS PIN ======
-const STAFF_PIN = "1234"; // <-- change this
+const STAFF_PIN = "1234";
+
+// ====== AUTO-LOCK ======
+const AUTO_LOCK_MS = 30_000;
+let autoLockTimer = null;
+
+// ====== TEAM CONFIG ======
+const TEAM_NAMES = ["Team A", "Team B", "Team C", "Team D"];
+const TEAM_CLASS = {
+  "Team A": "teamA",
+  "Team B": "teamB",
+  "Team C": "teamC",
+  "Team D": "teamD"
+};
+
+// ====== HELPERS ======
+const $ = (id) => document.getElementById(id);
+const clampInt = (v, min, max, fallback) => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(n)));
+};
+const fmt2 = (n) => String(n).padStart(2, "0");
+function formatTimeLeft(ms) {
+  if (!Number.isFinite(ms) || ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const mm = Math.floor(totalSec / 60);
+  const ss = totalSec % 60;
+  return `${fmt2(mm)}:${fmt2(ss)}`;
+}
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+  }[c]));
+}
+
+// ====== DARTS BUTTONS ======
+function makeDartsButtons() {
+  return [
+    { score: 20, x: 498, y: 138 }, { score: 1,  x: 557, y: 154 },
+    { score: 18, x: 609, y: 202 }, { score: 4,  x: 651, y: 276 },
+    { score: 13, x: 678, y: 370 }, { score: 6,  x: 687, y: 474 },
+    { score: 10, x: 678, y: 579 }, { score: 15, x: 651, y: 672 },
+    { score: 2,  x: 609, y: 747 }, { score: 17, x: 557, y: 795 },
+    { score: 3,  x: 498, y: 811 }, { score: 19, x: 440, y: 795 },
+    { score: 7,  x: 387, y: 747 }, { score: 16, x: 345, y: 672 },
+    { score: 8,  x: 318, y: 579 }, { score: 11, x: 309, y: 474 },
+    { score: 14, x: 318, y: 370 }, { score: 9,  x: 345, y: 276 },
+    { score: 12, x: 387, y: 202 }, { score: 5,  x: 440, y: 154 }
+  ];
+}
 
 // ====== GAMES ======
-// Put your target images in an /images folder alongside index.html
-// Example: images/dartboard.png
-// Then set image: "images/dartboard.png"
 const GAMES = [
   {
     id: "ducks",
     name: "Ducks",
     image: "images/ducks.png",
     buttons: [
-      { score: 1, x: 354, y: 293 },
-      { score: 6, x: 587, y: 293 },
-      { score: 2, x: 449, y: 432 },
-      { score: 7, x: 365, y: 555 },
-      { score: 5, x: 601, y: 606 },
-      { score: 3, x: 461, y: 653 },
-      { score: 9, x: 329, y: 701 },
-      { score: 10, x: 646, y: 702 },
-      { score: 4, x: 558, y: 782 },
-      { score: 8, x: 393, y: 818 }
+      { score: 1, x: 354, y: 293 }, { score: 6, x: 587, y: 293 },
+      { score: 2, x: 449, y: 432 }, { score: 7, x: 365, y: 555 },
+      { score: 5, x: 601, y: 606 }, { score: 3, x: 461, y: 653 },
+      { score: 9, x: 329, y: 701 }, { score: 10, x: 646, y: 702 },
+      { score: 4, x: 558, y: 782 }, { score: 8, x: 393, y: 818 }
     ]
   },
-
   {
     id: "axe-classic",
     name: "Axe Classic",
     image: "images/axe-classic.png",
     buttons: [
-      { score: 7, x: 315, y: 95 },  // top-left
-      { score: 7, x: 707, y: 95 },  // top-right
-      { score: 1, x: 352, y: 404 }, // outer ring label
-      { score: 3, x: 425, y: 449 }, // inner ring label
-      { score: 5, x: 500, y: 498 }  // bullseye
+      { score: 7, x: 315, y: 95 }, { score: 7, x: 707, y: 95 },
+      { score: 1, x: 352, y: 404 }, { score: 3, x: 425, y: 449 },
+      { score: 5, x: 500, y: 498 }
     ]
   },
-
   {
     id: "darts",
     name: "Darts",
     image: "images/darts.png",
     buttons: makeDartsButtons()
   },
-
   {
     id: "zombie",
     name: "Zombie",
     image: "images/zombie.png",
     buttons: [
-      { score: 10, x: 526, y: 174 }, // head
-
-      { score: 1, x: 387, y: 181 },  // top hand = 1
-      { score: 2, x: 462, y: 361 },
-      { score: 2, x: 543, y: 366 },
-      { score: 2, x: 389, y: 404 },
-      { score: 2, x: 592, y: 449 },
-
-      { score: 1, x: 376, y: 466 },  // arm = 1 (your rule)
-      { score: 3, x: 502, y: 498 },  // chest = 3
-
-      { score: 2, x: 538, y: 591 },
-      { score: 2, x: 475, y: 601 },
-
-      { score: 2, x: 511, y: 703 },
-      { score: 2, x: 632, y: 704 },
-
-      { score: 2, x: 572, y: 810 },
-      { score: 2, x: 458, y: 830 },
+      { score: 10, x: 526, y: 174 },
+      { score: 1, x: 387, y: 181 },
+      { score: 2, x: 462, y: 361 }, { score: 2, x: 543, y: 366 },
+      { score: 2, x: 389, y: 404 }, { score: 2, x: 592, y: 449 },
+      { score: 1, x: 376, y: 466 },
+      { score: 3, x: 502, y: 498 },
+      { score: 2, x: 538, y: 591 }, { score: 2, x: 475, y: 601 },
+      { score: 2, x: 511, y: 703 }, { score: 2, x: 632, y: 704 },
+      { score: 2, x: 572, y: 810 }, { score: 2, x: 458, y: 830 },
       { score: 2, x: 622, y: 851 }
     ]
   }
 ];
-function makeDartsButtons() {
-  return [
-    { score: 20, x: 498, y: 138 },
-    { score: 1,  x: 557, y: 154 },
-    { score: 18, x: 609, y: 202 },
-    { score: 4,  x: 651, y: 276 },
-    { score: 13, x: 678, y: 370 },
-    { score: 6,  x: 687, y: 474 },
-    { score: 10, x: 678, y: 579 },
-    { score: 15, x: 651, y: 672 },
-    { score: 2,  x: 609, y: 747 },
-    { score: 17, x: 557, y: 795 },
-    { score: 3,  x: 498, y: 811 },
-    { score: 19, x: 440, y: 795 },
-    { score: 7,  x: 387, y: 747 },
-    { score: 16, x: 345, y: 672 },
-    { score: 8,  x: 318, y: 579 },
-    { score: 11, x: 309, y: 474 },
-    { score: 14, x: 318, y: 370 },
-    { score: 9,  x: 345, y: 276 },
-    { score: 12, x: 387, y: 202 },
-    { score: 5,  x: 440, y: 154 }
-  ];
-}
 
-
-// ====== DOM ======
-const navScoreboard = document.getElementById("navScoreboard");
-const navGames = document.getElementById("navGames");
-const navAllGames = document.getElementById("navAllGames");
-
-const pageTitle = document.getElementById("pageTitle");
-const pageH1 = document.getElementById("pageH1");
-
-const pageScoreboard = document.getElementById("pageScoreboard");
-const pageGames = document.getElementById("pageGames");
-const pageAllGames = document.getElementById("pageAllGames");
-
-const unlockBtn = document.getElementById("unlockBtn");
-
-const pinModal = document.getElementById("pinModal");
-const pinInput = document.getElementById("pinInput");
-const pinOkBtn = document.getElementById("pinOkBtn");
-const pinCancelBtn = document.getElementById("pinCancelBtn");
-const pinMsg = document.getElementById("pinMsg");
-
-const laneSelect = document.getElementById("laneSelect");
-const gameSelect = document.getElementById("gameSelect");
-const roundsInput = document.getElementById("roundsInput");
-const throwsInput = document.getElementById("throwsInput");
-
-const playersList = document.getElementById("playersList");
-const newPlayerName = document.getElementById("newPlayerName");
-const addPlayerBtn = document.getElementById("addPlayerBtn");
-const applyGameBtn = document.getElementById("applyGameBtn");
-
-const statusText = document.getElementById("statusText");
-const scoreboardEl = document.getElementById("scoreboard");
-
-const undoBtn = document.getElementById("undoBtn");
-const missBtn = document.getElementById("missBtn");
-const missOnBoardBtn = document.getElementById("missOnBoardBtn");
-
-const gameImage = document.getElementById("gameImage");
-const overlay = document.getElementById("overlay");
-
-const historyTable = document.getElementById("historyTable");
-const clearHistoryBtn = document.getElementById("clearHistoryBtn");
-
-// ====== STORAGE KEYS ======
-const KEY_STATE = "rh_scoring_state_v1";
-const KEY_HISTORY = "rh_scoring_history_v1";
+// ====== STORAGE ======
+const KEY_STATE = "rh_state_full_v1";
 
 // ====== STATE ======
 let staffUnlocked = false;
+let sessionEnded = false;
+let timerTick = null;
+let undoStack = [];
 
-// loads existing state or uses default
 let state = loadState() ?? {
   lane: "Lane 1",
   gameId: GAMES[0].id,
   rounds: 3,
   throwsPerRound: 7,
   players: ["Player 1", "Player 2"],
-  throws: [] // created by resetScoreboard()
+  playerTeams: {},
+  teamMode: true,
+
+  sessionMinutesDefault: 60,
+  sessionEndsAt: null,
+  sessionRunning: false,
+
+  customerEmail: "",
+  throws: []
 };
 
-let undoStack = []; // {p,r,t,prev}
+// ====== DOM (must exist in your index.html) ======
+const navScoreboard = $("navScoreboard");
+const navGames = $("navGames");
+const navAllGames = $("navAllGames");
 
+const pageScoreboard = $("pageScoreboard");
+const pageGames = $("pageGames");
+const pageAllGames = $("pageAllGames");
+
+const unlockBtn = $("unlockBtn");
+const pinModal = $("pinModal");
+const pinInput = $("pinInput");
+const pinOkBtn = $("pinOkBtn");
+const pinCancelBtn = $("pinCancelBtn");
+const pinMsg = $("pinMsg");
+
+const laneSelect = $("laneSelect");
+const gameSelect = $("gameSelect");
+const roundsInput = $("roundsInput");
+const throwsInput = $("throwsInput");
+
+const playersList = $("playersList");
+const newPlayerName = $("newPlayerName");
+const addPlayerBtn = $("addPlayerBtn");
+const applyGameBtn = $("applyGameBtn");
+
+const undoBtn = $("undoBtn");
+const missBtn = $("missBtn");
+const missOnBoardBtn = $("missOnBoardBtn");
+
+const gameImage = $("gameImage");
+const overlay = $("overlay");
+const scoreboardEl = $("scoreboard");
+
+// Extras
+const teamModeBtn = $("teamModeBtn");
+const kioskBtn = $("kioskBtn");
+
+const sessionMinutes = $("sessionMinutes");
+const startTimerBtn = $("startTimerBtn");
+const stopTimerBtn = $("stopTimerBtn");
+const timerLabel = $("timerLabel");
+const laneLabel = $("laneLabel");
+const sessionEndedOverlay = $("sessionEndedOverlay");
+const newSessionBtn = $("newSessionBtn");
+
+const exportPngBtn = $("exportPngBtn");
+const emailResultsBtn = $("emailResultsBtn");
+const customerEmailInput = $("customerEmail");
+
+const startNewGameBtn = $("startNewGameBtn");
+
+// Idle attract
+const idleOverlay = $("idleOverlay");
+const idleLane = $("idleLane");
+
+// Optional elements (won’t break if missing)
+const statusText = $("statusText");
+
+// ====== INIT ======
 init();
 
-// ---------- INIT ----------
 function init() {
   // Populate game dropdown
   gameSelect.innerHTML = GAMES.map(g => `<option value="${g.id}">${g.name}</option>`).join("");
@@ -181,12 +214,23 @@ function init() {
   roundsInput.value = state.rounds;
   throwsInput.value = state.throwsPerRound;
 
-  renderPlayersEditor();
-  if (!Array.isArray(state.throws) || state.throws.length === 0) resetScoreboard();
+  sessionMinutes.value = state.sessionMinutesDefault ?? 60;
+  customerEmailInput.value = state.customerEmail ?? "";
 
+  teamModeBtn.textContent = state.teamMode ? "Team Mode: ON" : "Team Mode: OFF";
+
+  ensureTeams();
+  if (state.teamMode) autoBalanceTeams();
+
+  if (!Array.isArray(state.throws) || state.throws.length === 0) {
+    resetScoreboard();
+  }
+
+  renderPlayersEditor();
   renderTarget();
   renderScoreboard();
-  renderHistory();
+  renderSessionBar();
+  updateIdleOverlay();
 
   showPage("scoreboard");
   setStaffUnlocked(false);
@@ -203,8 +247,23 @@ function init() {
   pinInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
 
   // Staff controls
-  addPlayerBtn.addEventListener("click", addPlayer);
-  applyGameBtn.addEventListener("click", applyGameSettings);
+  addPlayerBtn.addEventListener("click", () => { addPlayer(); armAutoLock(); });
+  applyGameBtn.addEventListener("click", () => { applyGameSettings(); armAutoLock(); });
+  teamModeBtn.addEventListener("click", () => { toggleTeamMode(); armAutoLock(); });
+
+  // Start New Game (clear scores only)
+  startNewGameBtn.addEventListener("click", () => {
+    if (!staffUnlocked) return;
+    sessionEnded = false;
+    if (sessionEndedOverlay) sessionEndedOverlay.style.display = "none";
+    resetScoreboard();
+    renderTarget();
+    renderScoreboard();
+    updateIdleOverlay();
+    saveState();
+    showPage("scoreboard");
+    armAutoLock();
+  });
 
   // Scoring
   undoBtn.addEventListener("click", undo);
@@ -212,6 +271,7 @@ function init() {
   missOnBoardBtn.addEventListener("click", () => addScore(0));
 
   overlay.addEventListener("click", (e) => {
+    if (sessionEnded) return;
     const btn = e.target.closest(".scoreBtn");
     if (!btn) return;
     const score = Number(btn.dataset.score);
@@ -219,36 +279,47 @@ function init() {
     addScore(score);
   });
 
-  clearHistoryBtn.addEventListener("click", () => {
-    if (!confirm("Clear local history on this device?")) return;
-    localStorage.removeItem(KEY_HISTORY);
-    renderHistory();
+  // Kiosk
+  kioskBtn.addEventListener("click", enterKioskFullscreen);
+
+  // Timer controls
+  startTimerBtn.addEventListener("click", () => { startSessionTimer(); armAutoLock(); });
+  stopTimerBtn.addEventListener("click", () => { stopSessionTimer(); armAutoLock(); });
+
+  // End overlay: new session
+  newSessionBtn.addEventListener("click", () => {
+    if (!staffUnlocked) return;
+    sessionEnded = false;
+    sessionEndedOverlay.style.display = "none";
+    resetScoreboard();
+    renderTarget();
+    renderScoreboard();
+    updateIdleOverlay();
+    saveState();
+    showPage("scoreboard");
+    armAutoLock();
   });
+
+  // Exports
+  exportPngBtn.addEventListener("click", () => { exportResultsPng(); armAutoLock(); });
+  emailResultsBtn.addEventListener("click", () => { emailResults(); armAutoLock(); });
+  customerEmailInput.addEventListener("input", () => {
+    state.customerEmail = customerEmailInput.value.trim();
+    saveState();
+  });
+
+  // Resume timer if running
+  resumeTimerIfNeeded();
 }
 
-// ---------- UI / NAV ----------
+// ====== NAV ======
 function showPage(which) {
   pageScoreboard.style.display = which === "scoreboard" ? "" : "none";
   pageGames.style.display = which === "games" ? "" : "none";
   pageAllGames.style.display = which === "allgames" ? "" : "none";
-
-  navScoreboard.classList.toggle("active", which === "scoreboard");
-  navGames.classList.toggle("active", which === "games");
-  navAllGames.classList.toggle("active", which === "allgames");
-
-  if (which === "scoreboard") {
-    pageTitle.textContent = "Scoreboard";
-    pageH1.textContent = "Scoreboard";
-  } else if (which === "games") {
-    pageTitle.textContent = "Games";
-    pageH1.textContent = "Games";
-  } else {
-    pageTitle.textContent = "All Games";
-    pageH1.textContent = "All Games";
-  }
 }
 
-// ---------- STAFF PIN ----------
+// ====== STAFF LOCK ======
 function openPinModal() {
   pinMsg.textContent = "";
   pinInput.value = "";
@@ -262,17 +333,20 @@ function tryUnlock() {
   if (pinInput.value === STAFF_PIN) {
     setStaffUnlocked(true);
     closePinModal();
+    armAutoLock();
+    updateIdleOverlay();
   } else {
     pinMsg.textContent = "Incorrect PIN";
   }
 }
+
 function setStaffUnlocked(unlocked) {
   staffUnlocked = unlocked;
   unlockBtn.textContent = unlocked ? "🔓 Staff Unlocked" : "🔒 Staff Locked";
 
   const disabled = !unlocked;
 
-  /* Disable staff-only controls */
+  // Disable staff-only controls
   laneSelect.disabled = disabled;
   gameSelect.disabled = disabled;
   roundsInput.disabled = disabled;
@@ -280,22 +354,73 @@ function setStaffUnlocked(unlocked) {
   newPlayerName.disabled = disabled;
   addPlayerBtn.disabled = disabled;
   applyGameBtn.disabled = disabled;
+  teamModeBtn.disabled = disabled;
+  sessionMinutes.disabled = disabled;
+  startTimerBtn.disabled = disabled;
+  stopTimerBtn.disabled = disabled;
+  exportPngBtn.disabled = disabled;
+  emailResultsBtn.disabled = disabled;
+  customerEmailInput.disabled = disabled;
+  startNewGameBtn.disabled = disabled;
 
-  /* 🔒 LOCK CUSTOMER VIEW */
+  // Hide staff pages from customers
   navGames.style.display = unlocked ? "" : "none";
   navAllGames.style.display = unlocked ? "" : "none";
 
-  /* Force customers onto Scoreboard */
-  if (!unlocked) {
-    showPage("scoreboard");
+  // Clear auto-lock timer when locking
+  if (!unlocked && autoLockTimer) {
+    clearTimeout(autoLockTimer);
+    autoLockTimer = null;
   }
 
+  // Force customers onto scoreboard
+  if (!unlocked) showPage("scoreboard");
+
   renderPlayersEditor();
+  updateIdleOverlay();
+
+  if (unlocked) armAutoLock();
 }
 
-// ---------- PLAYERS ----------
+// Auto-lock after unlock
+function armAutoLock() {
+  if (!staffUnlocked) return;
+  if (autoLockTimer) clearTimeout(autoLockTimer);
+  autoLockTimer = setTimeout(() => {
+    setStaffUnlocked(false);
+    closePinModal();
+  }, AUTO_LOCK_MS);
+}
+
+// ====== TEAM MODE ======
+function ensureTeams() {
+  for (const name of state.players) {
+    if (!state.playerTeams[name]) state.playerTeams[name] = TEAM_NAMES[0];
+  }
+}
+function autoBalanceTeams() {
+  // round-robin assign across teams
+  const names = [...state.players];
+  names.forEach((name, i) => {
+    state.playerTeams[name] = TEAM_NAMES[i % TEAM_NAMES.length];
+  });
+}
+
+function toggleTeamMode() {
+  if (!staffUnlocked) return;
+  state.teamMode = !state.teamMode;
+  teamModeBtn.textContent = state.teamMode ? "Team Mode: ON" : "Team Mode: OFF";
+  ensureTeams();
+  if (state.teamMode) autoBalanceTeams();
+  saveState();
+  renderPlayersEditor();
+  renderScoreboard();
+}
+
+// ====== PLAYERS ======
 function renderPlayersEditor() {
   playersList.innerHTML = "";
+  ensureTeams();
 
   state.players.forEach((name, idx) => {
     const row = document.createElement("div");
@@ -305,26 +430,57 @@ function renderPlayersEditor() {
     input.value = name;
     input.disabled = !staffUnlocked;
     input.addEventListener("input", () => {
-      state.players[idx] = input.value;
+      const oldName = state.players[idx];
+      const newName = input.value.trim() || oldName;
+
+      state.players[idx] = newName;
+
+      // preserve team on rename
+      state.playerTeams[newName] = state.playerTeams[oldName] ?? TEAM_NAMES[0];
+      if (newName !== oldName) delete state.playerTeams[oldName];
+
       saveState();
       renderScoreboard();
+      updateIdleOverlay();
+      armAutoLock();
     });
 
-    const btn = document.createElement("button");
-    btn.className = "btnDanger";
-    btn.textContent = "Remove Player";
-    btn.disabled = !staffUnlocked;
-    btn.addEventListener("click", () => {
-      if (state.players.length <= 1) return;
+    const teamSelect = document.createElement("select");
+    TEAM_NAMES.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = t;
+      teamSelect.appendChild(opt);
+    });
+
+    teamSelect.value = state.playerTeams[name] || TEAM_NAMES[0];
+    teamSelect.disabled = !staffUnlocked || !state.teamMode;
+
+    teamSelect.addEventListener("change", () => {
+      state.playerTeams[name] = teamSelect.value;
+      saveState();
+      renderScoreboard();
+      armAutoLock();
+    });
+
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "btnDanger";
+    removeBtn.textContent = "Remove";
+    removeBtn.disabled = !staffUnlocked;
+    removeBtn.addEventListener("click", () => {
       state.players.splice(idx, 1);
+      delete state.playerTeams[name];
       saveState();
       resetScoreboard();
       renderPlayersEditor();
       renderScoreboard();
+      updateIdleOverlay();
+      armAutoLock();
     });
 
     row.appendChild(input);
-    row.appendChild(btn);
+    row.appendChild(teamSelect);
+    row.appendChild(removeBtn);
     playersList.appendChild(row);
   });
 }
@@ -336,44 +492,48 @@ function addPlayer() {
 
   state.players.push(name);
   newPlayerName.value = "";
-  saveState();
 
+  ensureTeams();
+  if (state.teamMode) autoBalanceTeams();
+
+  saveState();
   resetScoreboard();
   renderPlayersEditor();
   renderScoreboard();
+  updateIdleOverlay();
 }
 
-// ---------- GAME SETTINGS APPLY ----------
+// ====== GAME SETTINGS ======
 function applyGameSettings() {
   if (!staffUnlocked) return;
 
   state.lane = laneSelect.value;
   state.gameId = gameSelect.value;
-  state.rounds = clampInt(roundsInput.value, 1, 10, 3);
-  state.throwsPerRound = clampInt(throwsInput.value, 1, 20, 7);
+  state.rounds = clampInt(roundsInput.value, 1, 20, 3);
+  state.throwsPerRound = clampInt(throwsInput.value, 1, 30, 7);
+  state.sessionMinutesDefault = clampInt(sessionMinutes.value, 1, 180, 60);
 
-  roundsInput.value = state.rounds;
-  throwsInput.value = state.throwsPerRound;
+  ensureTeams();
+  if (state.teamMode) autoBalanceTeams();
 
   saveState();
+
+  sessionEnded = false;
+  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "none";
 
   resetScoreboard();
   renderTarget();
   renderScoreboard();
+  renderSessionBar();
+  updateIdleOverlay();
   showPage("scoreboard");
-}
-
-function clampInt(v, min, max, fallback) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
 function currentGame() {
   return GAMES.find(g => g.id === state.gameId) ?? GAMES[0];
 }
 
-// ---------- SCOREBOARD DATA ----------
+// ====== SCOREBOARD DATA ======
 function resetScoreboard() {
   const pCount = state.players.length;
   const rounds = state.rounds;
@@ -387,6 +547,17 @@ function resetScoreboard() {
 
   undoStack = [];
   saveState();
+}
+
+function anyScoresEntered() {
+  for (let p = 0; p < state.throws.length; p++) {
+    for (let r = 0; r < state.throws[p].length; r++) {
+      for (let t = 0; t < state.throws[p][r].length; t++) {
+        if (state.throws[p][r][t] != null) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function findNextEmpty() {
@@ -403,17 +574,21 @@ function findNextEmpty() {
 function roundTotal(p, r) {
   return state.throws[p][r].reduce((a, b) => a + (b ?? 0), 0);
 }
-
 function gameTotal(p) {
   return state.throws[p].reduce((sum, roundArr) => sum + roundArr.reduce((a, b) => a + (b ?? 0), 0), 0);
 }
-
-function gameComplete() {
-  return findNextEmpty() == null;
+function teamTotals() {
+  const totals = {};
+  for (let i = 0; i < state.players.length; i++) {
+    const name = state.players[i];
+    const team = state.playerTeams[name] || TEAM_NAMES[0];
+    totals[team] = (totals[team] || 0) + gameTotal(i);
+  }
+  return totals;
 }
 
 function addScore(score) {
-  if (gameComplete()) return;
+  if (sessionEnded) return;
 
   const next = findNextEmpty();
   if (!next) return;
@@ -425,24 +600,27 @@ function addScore(score) {
   saveState();
 
   renderScoreboard();
+  updateIdleOverlay();
 
-  if (gameComplete()) {
-    statusText.textContent = "Game finished";
-    saveGameToHistory();
-    renderHistory();
+  // update status text if present
+  const n = findNextEmpty();
+  if (statusText) {
+    statusText.textContent = n
+      ? `Round ${n.r + 1}, Throw ${n.t + 1} — ${state.players[n.p]}`
+      : `Game finished`;
   }
 }
 
 function undo() {
   const last = undoStack.pop();
   if (!last) return;
-
   state.throws[last.p][last.r][last.t] = last.prev;
   saveState();
   renderScoreboard();
+  updateIdleOverlay();
 }
 
-// ---------- RENDER TARGET + CLICK NUMBERS ----------
+// ====== RENDER TARGET ======
 function renderTarget() {
   const g = currentGame();
   gameImage.src = g.image;
@@ -456,7 +634,7 @@ function renderTarget() {
     const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     c.setAttribute("cx", String(b.x));
     c.setAttribute("cy", String(b.y));
-    c.setAttribute("r", "34");
+    c.setAttribute("r", "34"); // visual; tap size handled by CSS
 
     const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
     t.setAttribute("x", String(b.x));
@@ -469,22 +647,26 @@ function renderTarget() {
   }
 }
 
-// ---------- RENDER SCOREBOARD TABLE ----------
+// ====== RENDER SCOREBOARD ======
 function renderScoreboard() {
+  ensureTeams();
+
   const rounds = state.rounds;
   const throwsN = state.throwsPerRound;
   const pCount = state.players.length;
 
   const next = findNextEmpty();
-  statusText.textContent = next
-    ? `Round ${next.r + 1}, Throw ${next.t + 1} — ${state.players[next.p]}`
-    : `Game finished`;
+  if (statusText) {
+    statusText.textContent = next
+      ? `Round ${next.r + 1}, Throw ${next.t + 1} — ${state.players[next.p]}`
+      : `Game finished`;
+  }
 
   let html = `<table><thead>`;
 
-  // Row 1: Player Name | Round groups | Total
+  // Header row 1
   html += `<tr>
-    <th class="stickyLeft" rowspan="2">Player Name</th>`;
+    <th class="stickyLeft" rowspan="2">Player</th>`;
 
   for (let r = 0; r < rounds; r++) {
     html += `<th class="group" colspan="${throwsN + 1}">Round ${r + 1}</th>`;
@@ -492,7 +674,7 @@ function renderScoreboard() {
   html += `<th class="group totalCell" rowspan="2">Total</th>`;
   html += `</tr>`;
 
-  // Row 2: throw numbers + T
+  // Header row 2
   html += `<tr>`;
   for (let r = 0; r < rounds; r++) {
     for (let t = 0; t < throwsN; t++) html += `<th class="group">${t + 1}</th>`;
@@ -500,17 +682,20 @@ function renderScoreboard() {
   }
   html += `</tr></thead><tbody>`;
 
-  // Player rows
   for (let p = 0; p < pCount; p++) {
-    const activeRow = next && next.p === p ? ` class="activeRow"` : "";
-    html += `<tr${activeRow}>`;
-    html += `<td class="stickyLeft">${state.players[p]}</td>`;
+    const name = state.players[p];
+    const team = state.playerTeams[name] || TEAM_NAMES[0];
+    const teamCls = TEAM_CLASS[team] || "teamA";
+
+    html += `<tr>`;
+    html += `<td class="stickyLeft">${escapeHtml(name)}${
+      state.teamMode ? ` <span class="teamTag ${teamCls}">${escapeHtml(team)}</span>` : ""
+    }</td>`;
 
     for (let r = 0; r < rounds; r++) {
       for (let t = 0; t < throwsN; t++) {
         const v = state.throws[p][r][t];
-        const isActive = next && next.p === p && next.r === r && next.t === t;
-        html += `<td class="${isActive ? "activeCell" : ""}">${v ?? ""}</td>`;
+        html += `<td>${v ?? ""}</td>`;
       }
       html += `<td class="totalCell">${roundTotal(p, r)}</td>`;
     }
@@ -520,77 +705,259 @@ function renderScoreboard() {
   }
 
   html += `</tbody></table>`;
+
+  // Team totals
+  if (state.teamMode) {
+    const totals = teamTotals();
+    const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+
+    html += `
+      <div style="margin-top:12px;"></div>
+      <div class="card" style="padding:12px;border-radius:14px;background:rgba(0,0,0,0.04);">
+        <div style="font-weight:900;margin-bottom:8px;">Team Totals</div>
+        ${sorted.map(([team,total], i) => {
+          const cls = TEAM_CLASS[team] || "teamA";
+          const crown = i === 0 ? " 👑" : "";
+          return `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+              <div><span class="teamTag ${cls}">${escapeHtml(team)}</span>${crown}</div>
+              <div style="font-weight:900;">${total}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
   scoreboardEl.innerHTML = html;
 }
 
-// ---------- HISTORY (LOCAL) ----------
-function loadHistory() {
-  try { return JSON.parse(localStorage.getItem(KEY_HISTORY) || "[]"); }
-  catch { return []; }
+// ====== IDLE / ATTRACT SCREEN ======
+function updateIdleOverlay() {
+  if (!idleOverlay || !idleLane) return;
+
+  const shouldShow =
+    !staffUnlocked &&
+    !state.sessionRunning &&
+    !anyScoresEntered() &&
+    !sessionEnded;
+
+  idleLane.textContent = state.lane || "";
+  idleOverlay.style.display = shouldShow ? "" : "none";
 }
 
-function saveHistory(list) {
-  localStorage.setItem(KEY_HISTORY, JSON.stringify(list));
+// ====== SESSION TIMER + AUTO SHUTOFF ======
+function renderSessionBar() {
+  if (laneLabel) laneLabel.textContent = state.lane || "";
+  if (!timerLabel) return;
+
+  timerLabel.textContent = state.sessionRunning && state.sessionEndsAt
+    ? `Timer: ${formatTimeLeft(state.sessionEndsAt - Date.now())}`
+    : `Timer: --:--`;
 }
 
-function saveGameToHistory() {
-  const list = loadHistory();
-  const date = new Date().toLocaleString();
+function startSessionTimer() {
+  if (!staffUnlocked) return;
 
-  const totals = state.players
-    .map((name, idx) => ({ name, total: gameTotal(idx) }))
-    .sort((a, b) => b.total - a.total);
+  const mins = clampInt(sessionMinutes.value, 1, 180, 60);
+  state.sessionMinutesDefault = mins;
 
-  list.unshift({
-    lane: state.lane,
-    game: currentGame().name,
-    rounds: state.rounds,
-    throws: state.throwsPerRound,
-    players: state.players.length,
-    date,
-    winner: totals[0]?.name || "",
-    winnerScore: totals[0]?.total ?? 0,
-    runnerUp: totals[1]?.name || "",
-    runnerUpScore: totals[1]?.total ?? 0
+  state.sessionEndsAt = Date.now() + mins * 60 * 1000;
+  state.sessionRunning = true;
+  sessionEnded = false;
+  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "none";
+
+  saveState();
+  startTick();
+  renderSessionBar();
+  updateIdleOverlay();
+}
+
+function stopSessionTimer() {
+  if (!staffUnlocked) return;
+  state.sessionRunning = false;
+  state.sessionEndsAt = null;
+  saveState();
+  stopTick();
+  renderSessionBar();
+  updateIdleOverlay();
+}
+
+function resumeTimerIfNeeded() {
+  if (state.sessionRunning && state.sessionEndsAt) {
+    if (Date.now() >= state.sessionEndsAt) {
+      endSession();
+    } else {
+      startTick();
+      renderSessionBar();
+    }
+  } else {
+    renderSessionBar();
+  }
+}
+
+function startTick() {
+  stopTick();
+  timerTick = setInterval(() => {
+    if (!state.sessionRunning || !state.sessionEndsAt) return;
+    const left = state.sessionEndsAt - Date.now();
+    renderSessionBar();
+    if (left <= 0) endSession();
+  }, 250);
+}
+
+function stopTick() {
+  if (timerTick) clearInterval(timerTick);
+  timerTick = null;
+}
+
+function endSession() {
+  state.sessionRunning = false;
+  saveState();
+  stopTick();
+
+  sessionEnded = true;
+  if (sessionEndedOverlay) sessionEndedOverlay.style.display = "";
+  showPage("scoreboard");
+  renderSessionBar();
+  updateIdleOverlay();
+}
+
+// ====== KIOSK FULLSCREEN ======
+async function enterKioskFullscreen() {
+  try {
+    document.body.classList.add("kioskMode");
+    const el = document.documentElement;
+    if (el.requestFullscreen) await el.requestFullscreen();
+  } catch (e) {
+    // ignore
+  }
+}
+
+// ====== EXPORTS ======
+function getWinnersSummary() {
+  const playerTotals = state.players.map((name, i) => ({
+    name,
+    team: state.playerTeams[name] || TEAM_NAMES[0],
+    total: gameTotal(i)
+  })).sort((a, b) => b.total - a.total);
+
+  const teamTot = state.teamMode ? teamTotals() : null;
+  const teamSorted = teamTot ? Object.entries(teamTot).sort((a, b) => b[1] - a[1]) : [];
+  return { playerTotals, teamSorted };
+}
+
+function buildResultsText() {
+  const g = currentGame();
+  const { playerTotals, teamSorted } = getWinnersSummary();
+
+  let txt = `Rage House Results\n`;
+  txt += `Lane: ${state.lane}\n`;
+  txt += `Game: ${g.name}\n`;
+  txt += `Rounds: ${state.rounds} | Throws per round: ${state.throwsPerRound}\n\n`;
+
+  if (state.teamMode && teamSorted.length) {
+    txt += `Team Totals:\n`;
+    teamSorted.forEach(([team, total], i) => {
+      txt += `${i + 1}. ${team}: ${total}\n`;
+    });
+    txt += `\n`;
+  }
+
+  txt += `Players:\n`;
+  playerTotals.forEach((p, i) => {
+    txt += `${i + 1}. ${p.name}${state.teamMode ? ` (${p.team})` : ""}: ${p.total}\n`;
   });
 
-  saveHistory(list.slice(0, 200));
+  return txt;
 }
 
-function renderHistory() {
-  const list = loadHistory();
-  if (list.length === 0) {
-    historyTable.innerHTML = `<div class="muted">No games saved yet on this device.</div>`;
+async function exportResultsPng() {
+  if (!staffUnlocked) return;
+
+  if (typeof window.html2canvas !== "function") {
+    alert("Export not available: html2canvas not loaded. Add the CDN script in index.html.");
     return;
   }
 
-  const rows = list.map(g => `
-    <tr>
-      <td>${g.lane}</td>
-      <td>${g.game}</td>
-      <td>${g.rounds}</td>
-      <td>${g.throws}</td>
-      <td>${g.players}</td>
-      <td>${g.date}</td>
-      <td>${g.winner}<br><span class="muted tiny">Score: ${g.winnerScore}</span></td>
-      <td>${g.runnerUp}<br><span class="muted tiny">Score: ${g.runnerUpScore}</span></td>
-    </tr>
-  `).join("");
+  const g = currentGame();
+  const { playerTotals, teamSorted } = getWinnersSummary();
 
-  historyTable.innerHTML = `
+  const card = document.createElement("div");
+  card.id = "resultsCard";
+  card.innerHTML = `
+    <h1>Rage House Results</h1>
+    <div class="sub">
+      <span class="muted">Lane:</span> ${escapeHtml(state.lane)} ·
+      <span class="muted">Game:</span> ${escapeHtml(g.name)} ·
+      <span class="muted">Rounds:</span> ${state.rounds} ·
+      <span class="muted">Throws:</span> ${state.throwsPerRound}
+    </div>
+
+    ${state.teamMode ? `
+      <h2 style="margin: 18px 0 10px 0; font-size: 26px;">Team Totals</h2>
+      <table>
+        <thead><tr><th align="left">Team</th><th align="right">Total</th></tr></thead>
+        <tbody>
+          ${teamSorted.map(([team,total], i)=>`
+            <tr>
+              <td>${escapeHtml(team)}${i===0 ? " 👑" : ""}</td>
+              <td align="right"><strong>${total}</strong></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    ` : ""}
+
+    <h2 style="margin: 22px 0 10px 0; font-size: 26px;">Players</h2>
     <table>
-      <thead>
-        <tr>
-          <th>Lane</th><th>Game Type</th><th>Rounds</th><th>Throws</th><th>Players</th>
-          <th>Date Played</th><th>Winner</th><th>Runner-Up</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
+      <thead><tr><th align="left">Player</th><th align="left">Team</th><th align="right">Total</th></tr></thead>
+      <tbody>
+        ${playerTotals.map((p,i)=>`
+          <tr>
+            <td>${escapeHtml(p.name)}${i===0 ? " 👑" : ""}</td>
+            <td>${state.teamMode ? escapeHtml(p.team) : "-"}</td>
+            <td align="right"><strong>${p.total}</strong></td>
+          </tr>
+        `).join("")}
+      </tbody>
     </table>
+
+    <div class="sub" style="margin-top:18px;">
+      Post it: <span class="muted">@theragehouse</span>
+    </div>
   `;
+
+  card.style.position = "fixed";
+  card.style.left = "-99999px";
+  card.style.top = "0";
+  document.body.appendChild(card);
+
+  try {
+    const canvas = await window.html2canvas(card, { scale: 2, backgroundColor: null });
+    const dataUrl = canvas.toDataURL("image/png");
+
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `rage-house-results-${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    card.remove();
+  }
 }
 
-// ---------- LOCAL STATE STORAGE ----------
+function emailResults() {
+  if (!staffUnlocked) return;
+  const to = (state.customerEmail || "").trim();
+  const subject = encodeURIComponent(`Rage House Results - ${state.lane} - ${currentGame().name}`);
+  const body = encodeURIComponent(buildResultsText());
+  const mailto = `mailto:${encodeURIComponent(to)}?subject=${subject}&body=${body}`;
+  window.location.href = mailto;
+}
+
+// ====== SAVE / LOAD ======
 function loadState() {
   try { return JSON.parse(localStorage.getItem(KEY_STATE) || "null"); }
   catch { return null; }
