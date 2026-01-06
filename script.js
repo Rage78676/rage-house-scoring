@@ -16,26 +16,96 @@ const STAFF_PIN = "1234"; // <-- change this
 // Then set image: "images/dartboard.png"
 const GAMES = [
   {
+    id: "ducks",
+    name: "Ducks",
+    image: "images/ducks.png",
+    buttons: [
+      { score: 1, x: 354, y: 293 },
+      { score: 6, x: 587, y: 293 },
+      { score: 2, x: 449, y: 432 },
+      { score: 7, x: 365, y: 555 },
+      { score: 5, x: 601, y: 606 },
+      { score: 3, x: 461, y: 653 },
+      { score: 9, x: 329, y: 701 },
+      { score: 10, x: 646, y: 702 },
+      { score: 4, x: 558, y: 782 },
+      { score: 8, x: 393, y: 818 }
+    ]
+  },
+
+  {
+    id: "axe-classic",
+    name: "Axe Classic",
+    image: "images/axe-classic.png",
+    buttons: [
+      { score: 7, x: 315, y: 95 },  // top-left
+      { score: 7, x: 707, y: 95 },  // top-right
+      { score: 1, x: 352, y: 404 }, // outer ring label
+      { score: 3, x: 425, y: 449 }, // inner ring label
+      { score: 5, x: 500, y: 498 }  // bullseye
+    ]
+  },
+
+  {
     id: "darts",
     name: "Darts",
-    image: "images/dartboard.png",
-    buttons: makeDartboardButtons()
+    image: "images/darts.png",
+    buttons: makeDartsButtons()
+  },
+
+  {
+    id: "zombie",
+    name: "Zombie",
+    image: "images/zombie.png",
+    buttons: [
+      { score: 10, x: 526, y: 174 }, // head
+
+      { score: 1, x: 387, y: 181 },  // top hand = 1
+      { score: 2, x: 462, y: 361 },
+      { score: 2, x: 543, y: 366 },
+      { score: 2, x: 389, y: 404 },
+      { score: 2, x: 592, y: 449 },
+
+      { score: 1, x: 376, y: 466 },  // arm = 1 (your rule)
+      { score: 3, x: 502, y: 498 },  // chest = 3
+
+      { score: 2, x: 538, y: 591 },
+      { score: 2, x: 475, y: 601 },
+
+      { score: 2, x: 511, y: 703 },
+      { score: 2, x: 632, y: 704 },
+
+      { score: 2, x: 572, y: 810 },
+      { score: 2, x: 458, y: 830 },
+      { score: 2, x: 622, y: 851 }
+    ]
   }
 ];
-
-// Auto places 20 buttons in a circle (dartboard-style).
-// For axe targets, we’ll replace this with your real button coordinates.
-function makeDartboardButtons() {
-  const centerX = 500, centerY = 500;
-  const radius = 360;
-  const scores = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
-  const startAngleDeg = -90;
-
-  return scores.map((score, i) => {
-    const angle = (startAngleDeg + (i * (360 / scores.length))) * (Math.PI / 180);
-    return { score, x: centerX + radius * Math.cos(angle), y: centerY + radius * Math.sin(angle) };
-  });
+function makeDartsButtons() {
+  return [
+    { score: 20, x: 498, y: 138 },
+    { score: 1,  x: 557, y: 154 },
+    { score: 18, x: 609, y: 202 },
+    { score: 4,  x: 651, y: 276 },
+    { score: 13, x: 678, y: 370 },
+    { score: 6,  x: 687, y: 474 },
+    { score: 10, x: 678, y: 579 },
+    { score: 15, x: 651, y: 672 },
+    { score: 2,  x: 609, y: 747 },
+    { score: 17, x: 557, y: 795 },
+    { score: 3,  x: 498, y: 811 },
+    { score: 19, x: 440, y: 795 },
+    { score: 7,  x: 387, y: 747 },
+    { score: 16, x: 345, y: 672 },
+    { score: 8,  x: 318, y: 579 },
+    { score: 11, x: 309, y: 474 },
+    { score: 14, x: 318, y: 370 },
+    { score: 9,  x: 345, y: 276 },
+    { score: 12, x: 387, y: 202 },
+    { score: 5,  x: 440, y: 154 }
+  ];
 }
+
 
 // ====== DOM ======
 const navScoreboard = document.getElementById("navScoreboard");
