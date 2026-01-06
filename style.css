@@ -1,164 +1,218 @@
-* { box-sizing: border-box; font-family: system-ui, -apple-system, Segoe UI, Arial, sans-serif; }
-body { margin: 0; background: #f2f3f6; color: #111; }
+/* ============================================
+   Rage House Scoring - Full Style.css
+   - Clean, venue-friendly UI
+   - Works with full index.html + script.js
+   - Includes:
+     • Team colours
+     • Modal styling
+     • Session bar + overlays
+     • Idle attract screen
+     • Target overlay SVG buttons (big invisible tap zones + white numbers)
+   ============================================ */
 
-.layout { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: #f4f6fb;
+  color: #111;
+}
 
-.sidebar {
-  background: #1b1f27;
-  color: #fff;
+button, input, select {
+  font: inherit;
+}
+
+a { color: inherit; }
+
+.container {
   padding: 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.muted { color: rgba(0,0,0,0.55); }
+.error { color: #d21f3c; font-weight: 700; margin-top: 8px; }
+hr.sep {
+  border: 0;
+  height: 1px;
+  background: rgba(0,0,0,0.10);
+  margin: 14px 0;
+}
+
+/* ---------- Topbar / Nav ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #0b0b0f;
+  color: #fff;
+}
+
+.brandTitle {
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+.nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.navBtn {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.navBtn:hover { background: rgba(255,255,255,0.18); }
+.navBtn.active { background: rgba(255,255,255,0.25); }
+
+.actions { display: flex; gap: 8px; }
+
+/* ---------- Buttons ---------- */
+button {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: #111827;
+  color: #fff;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+button:hover { filter: brightness(1.05); }
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btnGhost {
+  background: rgba(0,0,0,0.08);
+  color: #111;
+}
+
+.btnGhost:hover { background: rgba(0,0,0,0.12); }
+
+.btnDanger {
+  background: #d21f3c;
+  color: #fff;
+}
+
+.btnDanger:hover { filter: brightness(1.05); }
+
+/* ---------- Cards ---------- */
+.card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 8px 26px rgba(17, 24, 39, 0.08);
+}
+
+.cardTitle {
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+/* ---------- Layout ---------- */
+.grid2 {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
   gap: 14px;
 }
 
-.sidebarBrand { display: flex; gap: 12px; align-items: center; padding: 10px 8px; }
-.logoCircle {
-  width: 44px; height: 44px; border-radius: 12px;
-  background: #2c3340; display:flex; align-items:center; justify-content:center;
-  font-weight: 900; color:#ff6a00;
-}
-.brandTitle { font-weight: 900; letter-spacing: .6px; }
-.brandSub { font-size: 12px; opacity: .7; margin-top: 2px; }
-
-.nav { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-.navItem {
-  width: 100%;
-  text-align: left;
-  padding: 12px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.08);
-  background: transparent;
-  color: #fff;
-  cursor: pointer;
-}
-.navItem:hover { background: rgba(255,255,255,.06); }
-.navItem.active { background: linear-gradient(90deg, #1d6fff, #1aa3ff); border-color: transparent; }
-
-.sidebarFooter { margin-top: auto; }
-
-.main { padding: 18px; }
-
-.pageHeader {
-  display:flex; align-items:center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-.crumb { font-size: 12px; color: #6a7384; }
-h1 { margin: 6px 0 0; font-size: 22px; }
-
-.headerActions { display:flex; gap: 10px; align-items:center; }
-
-.card {
-  background: #fff;
-  border-radius: 14px;
-  padding: 14px;
-  box-shadow: 0 6px 18px rgba(0,0,0,.08);
+@media (max-width: 980px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
 }
 
-.cardTitleRow {
-  display:flex; align-items:center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap;
-  margin-bottom: 12px;
+/* ---------- Form fields ---------- */
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
-.muted { color: #6a7384; }
-.tiny { font-size: 12px; }
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
 
-.grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.panel { background:#f8f9fc; border: 1px solid #e7e9ef; border-radius: 14px; padding: 14px; }
-.panelTitle { font-weight: 800; margin-bottom: 10px; }
-
-.field { display:flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-.field span { font-size: 12px; color:#6a7384; }
+label {
+  font-size: 13px;
+  font-weight: 900;
+  color: rgba(0,0,0,0.65);
+}
 
 input, select {
-  width: 100%;
-  padding: 10px 10px;
-  border-radius: 12px;
-  border: 1px solid #d9dde7;
-  background: #fff;
-  outline: none;
-}
-
-.playersList { display:flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.playerRow {
-  display:flex; gap: 10px; align-items:center;
-  background:#fff;
-  border:1px solid #e7e9ef;
-  border-radius: 12px;
-  padding: 10px;
-}
-.playerRow input { flex: 1; }
-.playerRow button { white-space: nowrap; }
-
-.addPlayerRow { display:flex; gap: 10px; align-items:center; }
-.addPlayerRow input { flex: 1; }
-
-.tableWrap { overflow-x:auto; }
-
-table {
-  border-collapse: collapse;
-  width: 100%;
-  min-width: 980px;
-}
-th, td {
-  border: 1px solid #e7e9ef;
-  padding: 8px;
-  text-align: center;
-  font-size: 13px;
-  white-space: nowrap;
-}
-th.group { background:#f6f7fb; font-weight: 800; }
-th.stickyLeft, td.stickyLeft { position: sticky; left: 0; background: #fff; z-index: 2; }
-td.totalCell, th.totalCell { background:#f6f7fb; font-weight: 900; }
-td.activeCell { outline: 3px solid rgba(29, 111, 255, .35); outline-offset:-3px; background:#eef5ff; }
-tr.activeRow td.stickyLeft { font-weight: 900; color:#1d6fff; }
-
-.targetArea { margin-top: 14px; display:flex; justify-content:center; }
-.targetFrame {
-  position: relative;
-  width: min(980px, 95vw);
-  aspect-ratio: 16/9;
-  border-radius: 14px;
-  overflow:hidden;
-  background:#e9ecf2;
-  border: 1px solid #e7e9ef;
-}
-.targetFrame img { position:absolute; inset:0; width:100%; height:100%; object-fit: contain; }
-#overlay { position:absolute; inset:0; width:100%; height:100%; }
-
-/* Miss button on image */
-.missOnBoard {
-  position:absolute;
-  top: 18px; left: 18px;
-  border: 3px solid #d92d20;
-  background: transparent;
-  color:#d92d20;
-  font-weight: 900;
-  padding: 10px 16px;
-  border-radius: 10px;
-  cursor:pointer;
-}
-
-/* Buttons */
-.btnPrimary, .btnSecondary, .btnDanger {
-  border: 0;
+  border: 1px solid rgba(0,0,0,0.14);
   border-radius: 12px;
   padding: 10px 12px;
-  cursor: pointer;
-  font-weight: 700;
+  background: #fff;
+  color: #111;
 }
-.btnPrimary { background: linear-gradient(90deg, #1d6fff, #1aa3ff); color:#fff; }
-.btnSecondary { background:#eef0f5; color:#111; }
-.btnDanger { background:#d92d20; color:#fff; }
-.full { width: 100%; }
 
-/* ================================
-   BIG INVISIBLE SCORING BUTTONS
-   Tablet & venue friendly
-   ================================ */
+input:disabled, select:disabled {
+  background: rgba(0,0,0,0.05);
+}
 
+/* ---------- Players list ---------- */
+.playerRow {
+  display: grid;
+  grid-template-columns: 1fr 160px 110px;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .playerRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Target ---------- */
+.targetWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.06);
+}
+
+#gameImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* SVG overlay sits on top of image */
+.overlaySvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- BIG INVISIBLE SCORING BUTTONS ---------- */
 /* Whole SVG group clickable */
 .scoreBtn {
   cursor: pointer;
@@ -167,52 +221,191 @@ tr.activeRow td.stickyLeft { font-weight: 900; color:#1d6fff; }
 
 /* Large invisible tap area */
 .scoreBtn circle {
-  r: 60; /* 🔴 BIG tap zone (default was ~34) */
-  fill: rgba(29,111,255,0);     /* invisible */
-  stroke: rgba(29,111,255,0);   /* invisible */
+  r: 50;                         /* BIG tap zone */
+  fill: rgba(29,111,255,0);      /* invisible */
+  stroke: rgba(29,111,255,0);    /* invisible */
   stroke-width: 0;
 }
 
-/* Score number */
+/* White score number */
 .scoreBtn text {
   font-weight: 900;
- fill: #ffffff;
-  font-size: 30px;              /* bigger number */
+  fill: #ffffff;                 /* WHITE numbers */
+  font-size: 30px;
   text-anchor: middle;
   dominant-baseline: middle;
-  pointer-events: none;         /* clicks go to circle */
+  pointer-events: none;          /* clicks go to circle */
+  text-shadow: 0 0 6px rgba(0,0,0,0.6);
 }
 
-/* Visual feedback on hover / tap */
+/* Hover feedback (desktop) */
 .scoreBtn:hover circle {
-  fill: rgba(29,111,255,0.18);  /* subtle glow */
+  fill: rgba(29,111,255,0.18);
 }
 
-/* Optional: active tap feedback */
+/* Tap feedback */
 .scoreBtn:active circle {
   fill: rgba(29,111,255,0.28);
 }
 
-
-/* Modal */
-.modalBackdrop {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.45);
-  display:flex; align-items:center; justify-content:center;
-  padding: 18px;
-}
-.modal {
-  width: min(420px, 100%);
-  background:#fff;
+/* ---------- Scoreboard table ---------- */
+#scoreboard table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
   border-radius: 14px;
+}
+
+#scoreboard th, #scoreboard td {
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  padding: 10px 8px;
+  text-align: center;
+  font-weight: 700;
+  background: #fff;
+}
+
+#scoreboard th {
+  font-weight: 900;
+  background: rgba(0,0,0,0.03);
+}
+
+.stickyLeft {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  text-align: left !important;
+  min-width: 190px;
+}
+
+.group {
+  font-weight: 900;
+  background: rgba(0,0,0,0.03);
+}
+
+.totalCell {
+  font-weight: 900 !important;
+}
+
+/* Allow horizontal scroll for lots of rounds/throws/players */
+.scoreCard #scoreboard {
+  overflow: auto;
+  max-height: 72vh;
+}
+
+/* ---------- Team colour tags ---------- */
+.teamTag{
+  display:inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 12px;
+  color: #fff;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.teamA{ background:#e11d48; } /* red */
+.teamB{ background:#2563eb; } /* blue */
+.teamC{ background:#16a34a; } /* green */
+.teamD{ background:#a855f7; } /* purple */
+
+/* ---------- Session bar ---------- */
+.sessionBar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:10px 12px;
+  border-radius:12px;
+  background: rgba(0,0,0,0.06);
+  margin-bottom: 12px;
+}
+
+/* ---------- Session ended overlay ---------- */
+.sessionEndedOverlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index: 99999;
+}
+.sessionEndedCard{
+  width: min(520px, 92vw);
+  background:#fff;
+  border-radius:16px;
+  padding:18px;
+  text-align:center;
+}
+.sessionEndedCard h2 { margin: 0 0 10px 0; }
+.sessionEndedCard p { margin: 0 0 10px 0; color: rgba(0,0,0,0.65); }
+.sessionEndedCard button{ margin-top: 10px; }
+
+/* ---------- Idle / attract overlay ---------- */
+.idleOverlay{
+  position: fixed;
+  inset: 0;
+  background: #0b0b0f;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index: 99998;
+}
+
+.idleCard{
+  width: min(720px, 92vw);
+  text-align: center;
+  padding: 26px;
+  border-radius: 24px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+#idleLogo{
+  width: min(320px, 70vw);
+  height: auto;
+  margin-bottom: 16px;
+}
+
+.idleLane{
+  color: #fff;
+  font-weight: 900;
+  font-size: clamp(40px, 6vw, 72px);
+  letter-spacing: 2px;
+}
+
+.idleHint{
+  margin-top: 10px;
+  color: rgba(255,255,255,0.7);
+  font-weight: 800;
+}
+
+/* ---------- Modal ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+}
+
+.modalCard {
+  width: min(420px, 92vw);
+  background: #fff;
+  border-radius: 18px;
   padding: 16px;
-}
-.modalActions { display:flex; justify-content:flex-end; gap:10px; margin-top: 10px; }
-
-@media (max-width: 980px) {
-  .layout { grid-template-columns: 1fr; }
-  .sidebar { flex-direction: row; align-items:center; justify-content:space-between; }
-  .nav { flex-direction: row; flex-wrap: wrap; }
-  .grid2 { grid-template-columns: 1fr; }
+  box-shadow: 0 12px 36px rgba(0,0,0,0.25);
 }
 
+.modalCard h2 {
+  margin: 0 0 8px 0;
+}
+
+.modalCard input {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* ---------- Kiosk mode ---------- */
+body.kioskMode * { user-select: none; }
