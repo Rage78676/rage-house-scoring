@@ -1,12 +1,13 @@
 /*********************************
  * Rage House Scoring (Local-only)
- * FULL BUILD + QR Results Viewer
+ * Big target UNDER scoreboard
+ * No idle overlay
  *********************************/
 
 // ====== CHANGE THIS PIN ======
 const STAFF_PIN = "1234";
 
-// ====== AUTO-LOCK ======
+// ====== AUTO-LOCK (staff only) ======
 const AUTO_LOCK_MS = 30_000;
 
 // ====== TEAM CONFIG ======
@@ -141,7 +142,7 @@ const GAMES = [
 ];
 
 // ====== STORAGE ======
-const KEY_STATE = "rh_state_full_v1";
+const KEY_STATE = "rh_state_v2_big_target";
 
 // ====== DOM ======
 const navScoreboard = $("navScoreboard");
@@ -189,13 +190,11 @@ const stopTimerBtn = $("stopTimerBtn");
 const timerLabel = $("timerLabel");
 const laneLabel = $("laneLabel");
 
-const idleOverlay = $("idleOverlay");
-const idleLane = $("idleLane");
-
 const sessionEndedOverlay = $("sessionEndedOverlay");
 const newSessionBtn = $("newSessionBtn");
 
 const exportPngBtn = $("exportPngBtn");
+const qrBtn = $("qrBtn");
 const emailResultsBtn = $("emailResultsBtn");
 const customerEmailInput = $("customerEmail");
 
@@ -224,8 +223,13 @@ let state = loadState() ?? {
   throws: []
 };
 
-// ====== VIEWER MODE (QR results viewer) ======
 boot();
+
+// ====== VIEWER MODE (QR results viewer) ======
+function isViewerMode() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("view") === "1";
+}
 
 async function boot() {
   if (isViewerMode()) {
@@ -258,9 +262,6 @@ async function boot() {
   showPage("scoreboard");
   setStaffUnlocked(false);
 
-  setupIdleOverlayUnlock();
-  updateIdleOverlay();
-
   // Nav
   navScoreboard.addEventListener("click", () => showPage("scoreboard"));
   navGames.addEventListener("click", () => showPage("games"));
@@ -277,7 +278,7 @@ async function boot() {
   applyGameBtn.addEventListener("click", () => { applyGameSettings(); armAutoLock(); });
   teamModeBtn.addEventListener("click", () => { toggleTeamMode(); armAutoLock(); });
 
-  // Scoring
+  // Scoring (CUSTOMERS CAN ALWAYS CLICK)
   undoBtn.addEventListener("click", undo);
   missBtn.addEventListener("click", () => addScore(0));
   missOnBoardBtn.addEventListener("click", () => addScore(0));
@@ -305,7 +306,6 @@ async function boot() {
     resetScoreboard();
     renderTarget();
     renderScoreboard();
-    updateIdleOverlay();
     saveState();
     showPage("scoreboard");
     armAutoLock();
@@ -318,30 +318,23 @@ async function boot() {
     resetScoreboard();
     renderTarget();
     renderScoreboard();
-    updateIdleOverlay();
     saveState();
     showPage("scoreboard");
     armAutoLock();
   });
 
-  // Export + email
+  // Export + email + QR
   exportPngBtn.addEventListener("click", () => { exportResultsPng(); armAutoLock(); });
   emailResultsBtn.addEventListener("click", () => { emailResults(); armAutoLock(); });
+  qrBtn.addEventListener("click", async () => { await showQrModal(); armAutoLock(); });
+
   customerEmailInput.addEventListener("input", () => {
     state.customerEmail = customerEmailInput.value.trim();
     saveState();
   });
 
-  // Add QR results button next to export
-  addQrResultsButton();
-
   // Resume timer if running
   resumeTimerIfNeeded();
-}
-
-function isViewerMode() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("view") === "1";
 }
 
 // ====== NAV ======
@@ -369,7 +362,6 @@ function tryUnlock() {
     setStaffUnlocked(true);
     closePinModal();
     armAutoLock();
-    updateIdleOverlay();
   } else {
     pinMsg.textContent = "Incorrect PIN";
   }
@@ -381,6 +373,7 @@ function setStaffUnlocked(unlocked) {
 
   const disabled = !unlocked;
 
+  // Staff-only controls
   laneSelect.disabled = disabled;
   gameSelect.disabled = disabled;
   roundsInput.disabled = disabled;
@@ -397,6 +390,7 @@ function setStaffUnlocked(unlocked) {
 
   exportPngBtn.disabled = disabled;
   emailResultsBtn.disabled = disabled;
+  qrBtn.disabled = disabled;
   customerEmailInput.disabled = disabled;
 
   startNewGameBtn.disabled = disabled;
@@ -414,7 +408,6 @@ function setStaffUnlocked(unlocked) {
   if (unlocked) armAutoLock();
 
   renderPlayersEditor();
-  updateIdleOverlay();
 }
 
 function armAutoLock() {
@@ -424,25 +417,6 @@ function armAutoLock() {
     setStaffUnlocked(false);
     closePinModal();
   }, AUTO_LOCK_MS);
-}
-
-// Idle overlay tap opens PIN (but topbar still clickable)
-function setupIdleOverlayUnlock() {
-  idleOverlay.style.pointerEvents = "auto";
-  idleOverlay.addEventListener("click", () => {
-    if (!staffUnlocked) openPinModal();
-  });
-}
-
-function updateIdleOverlay() {
-  const shouldShow =
-    !staffUnlocked &&
-    !state.sessionRunning &&
-    !anyScoresEntered() &&
-    !sessionEnded;
-
-  idleLane.textContent = state.lane || "";
-  idleOverlay.style.display = shouldShow ? "" : "none";
 }
 
 // ====== TEAM MODE ======
@@ -492,7 +466,6 @@ function renderPlayersEditor() {
 
       saveState();
       renderScoreboard();
-      updateIdleOverlay();
       armAutoLock();
     });
 
@@ -524,7 +497,6 @@ function renderPlayersEditor() {
       resetScoreboard();
       renderPlayersEditor();
       renderScoreboard();
-      updateIdleOverlay();
       armAutoLock();
     });
 
@@ -550,7 +522,6 @@ function addPlayer() {
   resetScoreboard();
   renderPlayersEditor();
   renderScoreboard();
-  updateIdleOverlay();
 }
 
 // ====== GAME SETTINGS ======
@@ -572,7 +543,6 @@ function applyGameSettings() {
   renderTarget();
   renderScoreboard();
   renderSessionBar();
-  updateIdleOverlay();
   showPage("scoreboard");
 }
 
@@ -594,17 +564,6 @@ function resetScoreboard() {
 
   undoStack = [];
   saveState();
-}
-
-function anyScoresEntered() {
-  for (let p = 0; p < state.throws.length; p++) {
-    for (let r = 0; r < state.throws[p].length; r++) {
-      for (let t = 0; t < state.throws[p][r].length; t++) {
-        if (state.throws[p][r][t] != null) return true;
-      }
-    }
-  }
-  return false;
 }
 
 function roundTotal(p, r) {
@@ -638,6 +597,7 @@ function findNextEmpty() {
 
 function addScore(score) {
   if (sessionEnded) return;
+
   const next = findNextEmpty();
   if (!next) return;
 
@@ -648,7 +608,6 @@ function addScore(score) {
   saveState();
 
   renderScoreboard();
-  updateIdleOverlay();
 
   const n = findNextEmpty();
   statusText.textContent = n
@@ -662,13 +621,11 @@ function undo() {
   state.throws[last.p][last.r][last.t] = last.prev;
   saveState();
   renderScoreboard();
-  updateIdleOverlay();
 }
 
-// ====== TARGET RENDER (FIXED SCALING) ======
+// ====== TARGET RENDER (fixed scaling) ======
 function renderTarget() {
   const g = currentGame();
-
   gameImage.src = g.image;
 
   gameImage.onload = () => {
@@ -687,7 +644,7 @@ function renderTarget() {
       const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       c.setAttribute("cx", String(b.x));
       c.setAttribute("cy", String(b.y));
-      c.setAttribute("r", "44"); // bigger tap target
+      c.setAttribute("r", "44"); // tap size
 
       const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
       t.setAttribute("x", String(b.x));
@@ -704,6 +661,7 @@ function renderTarget() {
 // ====== SCOREBOARD RENDER ======
 function renderScoreboard() {
   ensureTeams();
+
   const rounds = state.rounds;
   const throwsN = state.throwsPerRound;
   const pCount = state.players.length;
@@ -824,7 +782,6 @@ function startSessionTimer() {
   saveState();
   startTick();
   renderSessionBar();
-  updateIdleOverlay();
 }
 
 function stopSessionTimer() {
@@ -834,7 +791,6 @@ function stopSessionTimer() {
   saveState();
   stopTick();
   renderSessionBar();
-  updateIdleOverlay();
 }
 
 function endSession() {
@@ -846,7 +802,6 @@ function endSession() {
   sessionEndedOverlay.style.display = "";
   showPage("scoreboard");
   renderSessionBar();
-  updateIdleOverlay();
 }
 
 // ====== KIOSK ======
@@ -973,29 +928,6 @@ function buildResultsText() {
 }
 
 // ====== QR RESULTS ======
-function addQrResultsButton() {
-  if (!exportPngBtn) return;
-
-  const btn = document.createElement("button");
-  btn.className = "btnGhost";
-  btn.textContent = "Show QR Results";
-  btn.disabled = true;
-
-  exportPngBtn.parentElement.insertBefore(btn, emailResultsBtn);
-
-  const originalSet = setStaffUnlocked;
-  setStaffUnlocked = function (unlocked) {
-    originalSet(unlocked);
-    btn.disabled = !unlocked;
-  };
-
-  btn.addEventListener("click", async () => {
-    if (!staffUnlocked) return;
-    armAutoLock();
-    await showQrModal();
-  });
-}
-
 function buildSharePayload() {
   const g = currentGame();
   const players = state.players.map((name, i) => ({
@@ -1024,6 +956,8 @@ function buildShareUrl() {
 }
 
 async function showQrModal() {
+  if (!staffUnlocked) return;
+
   await ensureQrLib();
   const shareUrl = buildShareUrl();
 
@@ -1092,7 +1026,6 @@ async function showQrModal() {
       urlBox.select();
       document.execCommand("copy");
     }
-    armAutoLock();
   });
 
   const closeBtn = document.createElement("button");
@@ -1122,7 +1055,6 @@ async function showQrModal() {
 
 // ====== RESULTS VIEWER (PHONE) ======
 function renderResultsViewerFromUrl() {
-  // Hide sidebar + topbar
   document.querySelector(".topbar").style.display = "none";
   document.querySelector(".sidebar").style.display = "none";
   document.querySelector(".layout").style.gridTemplateColumns = "1fr";
@@ -1130,9 +1062,6 @@ function renderResultsViewerFromUrl() {
   const hash = window.location.hash || "";
   const m = hash.match(/#d=([^&]+)/);
   if (!m) {
-    pageScoreboard.style.display = "";
-    pageGames.style.display = "none";
-    pageAllGames.style.display = "none";
     scoreboardEl.innerHTML = `<div class="card"><h2>Results</h2><p class="muted">Invalid results link.</p></div>`;
     return;
   }
@@ -1153,6 +1082,11 @@ function renderResultsViewerFromUrl() {
 
   const players = Array.isArray(payload.players) ? payload.players : [];
   const teams = payload.teamTotals ? Object.entries(payload.teamTotals).sort((a,b)=>b[1]-a[1]) : [];
+
+  document.querySelector(".targetCard").style.display = "none";
+  pageGames.style.display = "none";
+  pageAllGames.style.display = "none";
+  pageScoreboard.style.display = "";
 
   const teamHtml = payload.teamTotals
     ? `
@@ -1181,13 +1115,6 @@ function renderResultsViewerFromUrl() {
       </tr>
     `).join("");
 
-  pageScoreboard.style.display = "";
-  pageGames.style.display = "none";
-  pageAllGames.style.display = "none";
-
-  // Hide target
-  document.querySelector(".targetCard").style.display = "none";
-
   scoreboardEl.innerHTML = `
     <div class="card">
       <h2 style="margin:0 0 6px 0;">Rage House Results</h2>
@@ -1209,6 +1136,28 @@ function renderResultsViewerFromUrl() {
       <div class="muted" style="margin-top:10px;">Tip: screenshot this screen to share.</div>
     </div>
   `;
+}
+
+// ====== TIMER RESUME ======
+function resumeTimerIfNeeded() {
+  if (state.sessionRunning && state.sessionEndsAt) {
+    if (Date.now() >= state.sessionEndsAt) endSession();
+    else { startTick(); renderSessionBar(); }
+  } else renderSessionBar();
+}
+
+let timerTick = null;
+function startTick() {
+  stopTick();
+  timerTick = setInterval(() => {
+    if (!state.sessionRunning || !state.sessionEndsAt) return;
+    renderSessionBar();
+    if (state.sessionEndsAt - Date.now() <= 0) endSession();
+  }, 250);
+}
+function stopTick() {
+  if (timerTick) clearInterval(timerTick);
+  timerTick = null;
 }
 
 // ====== SAVE/LOAD ======
