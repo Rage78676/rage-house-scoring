@@ -21,7 +21,6 @@
   </header>
 
   <div class="layout">
-    <!-- Sidebar -->
     <aside class="sidebar">
       <div class="brand">
         <div class="brandTitle">THE RAGE HOUSE</div>
@@ -39,9 +38,8 @@
       </div>
     </aside>
 
-    <!-- Main -->
     <main class="main">
-      <!-- PAGE: SCOREBOARD -->
+      <!-- SCOREBOARD PAGE -->
       <section id="pageScoreboard">
         <div class="card">
           <div class="cardHeader">
@@ -62,7 +60,7 @@
           </div>
 
           <div class="targetWrap">
-            <div class="targetStage">
+            <div class="targetStage" id="targetStage">
               <img id="gameImage" alt="Target" />
               <svg id="overlay"></svg>
             </div>
@@ -76,12 +74,14 @@
         </div>
       </section>
 
-      <!-- PAGE: GAMES (Staff only UI) -->
+      <!-- GAMES PAGE (STAFF ONLY CONTROLS) -->
       <section id="pageGames" style="display:none;">
         <div class="card">
           <div class="cardHeader">
-            <h2 class="h2">Games</h2>
-            <div class="muted">Staff-only setup</div>
+            <div>
+              <h2 class="h2">Games</h2>
+              <div class="muted">Staff-only setup</div>
+            </div>
           </div>
 
           <div class="grid2">
@@ -120,21 +120,21 @@
               </div>
 
               <div class="muted tiny" style="margin-top:8px;">
-                Unlimited players supported (performance depends on device).
+                Add as many players as you want.
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- PAGE: ALL GAMES (placeholder so nav doesn’t break) -->
+      <!-- ALL GAMES PAGE (placeholder) -->
       <section id="pageAllGames" style="display:none;">
         <div class="card">
           <div class="cardHeader">
             <h2 class="h2">All Games</h2>
-            <div class="muted">This can be expanded later.</div>
+            <div class="muted">You can expand this later.</div>
           </div>
-          <div class="muted">No history page in this simplified version.</div>
+          <div class="muted">No history view in this version.</div>
         </div>
       </section>
     </main>
