@@ -3,17 +3,17 @@
  * - Staff lock with PIN
  * - Unlimited players
  * - Custom rounds + throws
+ * - Customers can ALWAYS score
  * - Target BIG underneath scoreboard
- * - FIXED overlay alignment using baseW/baseH
- * - Customers can always score (even when staff locked)
+ * - PERFECT overlay alignment with object-fit: contain
  *********************************/
 
 // ====== CHANGE THIS PIN ======
 const STAFF_PIN = "1234"; // change this
 
 // ====== GAMES ======
-// IMPORTANT: baseW/baseH must match the coordinate system used for your x/y.
-// If your images are 1024x1024, keep as-is. If different, change per image.
+// baseW/baseH MUST match the coordinate system you used when setting x/y.
+// If all your images are 1024x1024, keep this.
 const GAMES = [
   {
     id: "ducks",
@@ -134,11 +134,13 @@ const playersList = document.getElementById("playersList");
 const newPlayerName = document.getElementById("newPlayerName");
 const addPlayerBtn = document.getElementById("addPlayerBtn");
 const applyGameBtn = document.getElementById("applyGameBtn");
+const startNewGameBtn = document.getElementById("startNewGameBtn");
 
 const undoBtn = document.getElementById("undoBtn");
 const missBtn = document.getElementById("missBtn");
 const missOnBoardBtn = document.getElementById("missOnBoardBtn");
 
+const targetStage = document.getElementById("targetStage");
 const gameImage = document.getElementById("gameImage");
 const overlay = document.getElementById("overlay");
 
@@ -148,10 +150,8 @@ const statusText = document.getElementById("statusText");
 const laneLabel = document.getElementById("laneLabel");
 const timerLabel = document.getElementById("timerLabel");
 
-const startNewGameBtn = document.getElementById("startNewGameBtn");
-
 // ====== STORAGE ======
-const KEY_STATE = "rh_scoring_state_v3";
+const KEY_STATE = "rh_scoring_state_final_v1";
 
 // ====== STATE ======
 let staffUnlocked = false;
@@ -170,7 +170,7 @@ init();
 
 // ---------- INIT ----------
 function init() {
-  // Dropdown list
+  // Populate game dropdown
   gameSelect.innerHTML = GAMES.map(g => `<option value="${g.id}">${g.name}</option>`).join("");
   gameSelect.value = state.gameId;
 
@@ -195,7 +195,7 @@ function init() {
   navGames.addEventListener("click", () => showPage("games"));
   navAllGames.addEventListener("click", () => showPage("allgames"));
 
-  // Staff lock
+  // Staff PIN
   unlockBtn.addEventListener("click", openPinModal);
   pinCancelBtn.addEventListener("click", closePinModal);
   pinOkBtn.addEventListener("click", tryUnlock);
@@ -206,7 +206,7 @@ function init() {
   applyGameBtn.addEventListener("click", applyGameSettings);
   startNewGameBtn.addEventListener("click", startNewGame);
 
-  // Scoring buttons (CUSTOMERS CAN ALWAYS CLICK)
+  // Scoring (CUSTOMERS ALWAYS CAN CLICK)
   undoBtn.addEventListener("click", undo);
   missBtn.addEventListener("click", () => addScore(0));
   missOnBoardBtn.addEventListener("click", () => addScore(0));
@@ -219,7 +219,14 @@ function init() {
     addScore(score);
   });
 
+  // Fullscreen
   kioskBtn.addEventListener("click", enterFullscreen);
+
+  // Keep overlay aligned on resize
+  window.addEventListener("resize", () => {
+    const g = currentGame();
+    fitOverlayToContainedImage(g.baseW || 1024, g.baseH || 1024);
+  });
 }
 
 // ---------- NAV ----------
@@ -257,7 +264,7 @@ function setStaffUnlocked(unlocked) {
 
   const disabled = !unlocked;
 
-  // Staff-only inputs
+  // Staff-only controls
   laneSelect.disabled = disabled;
   gameSelect.disabled = disabled;
   roundsInput.disabled = disabled;
@@ -267,7 +274,7 @@ function setStaffUnlocked(unlocked) {
   applyGameBtn.disabled = disabled;
   startNewGameBtn.disabled = disabled;
 
-  // Hide staff pages when locked (customers = scoreboard only)
+  // Hide staff pages when locked (customers use scoreboard only)
   navGames.style.display = unlocked ? "" : "none";
   navAllGames.style.display = unlocked ? "" : "none";
   if (!unlocked) showPage("scoreboard");
@@ -278,7 +285,6 @@ function setStaffUnlocked(unlocked) {
 // ---------- PLAYERS ----------
 function renderPlayersEditor() {
   playersList.innerHTML = "";
-
   state.players.forEach((name, idx) => {
     const row = document.createElement("div");
     row.className = "playerRow";
@@ -286,6 +292,7 @@ function renderPlayersEditor() {
     const input = document.createElement("input");
     input.value = name;
     input.disabled = !staffUnlocked;
+
     input.addEventListener("input", () => {
       state.players[idx] = input.value;
       saveState();
@@ -322,11 +329,7 @@ function applyGameSettings() {
 
   laneLabel.textContent = state.lane;
 
-  roundsInput.value = state.rounds;
-  throwsInput.value = state.throwsPerRound;
-
   saveState();
-
   resetScoreboard();
   renderTarget();
   renderScoreboard();
@@ -345,7 +348,6 @@ function clampInt(v, min, max, fallback) {
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
-
 function currentGame() {
   return GAMES.find(g => g.id === state.gameId) ?? GAMES[0];
 }
@@ -380,7 +382,6 @@ function findNextEmpty() {
 function roundTotal(p, r) {
   return state.throws[p][r].reduce((a, b) => a + (b ?? 0), 0);
 }
-
 function gameTotal(p) {
   return state.throws[p].reduce((sum, roundArr) => sum + roundArr.reduce((a, b) => a + (b ?? 0), 0), 0);
 }
@@ -394,28 +395,38 @@ function addScore(score) {
 
   state.throws[next.p][next.r][next.t] = score;
   saveState();
-
   renderScoreboard();
 }
 
 function undo() {
   const last = undoStack.pop();
   if (!last) return;
-
   state.throws[last.p][last.r][last.t] = last.prev;
   saveState();
   renderScoreboard();
 }
 
-// ---------- TARGET RENDER (FIXED ALIGNMENT) ----------
+// ---------- TARGET RENDER (PERFECT ALIGNMENT) ----------
 function renderTarget() {
   const g = currentGame();
-  gameImage.src = g.image;
-
-  // LOCK overlay coordinate system to the same base used for your x/y
   const baseW = g.baseW || 1024;
   const baseH = g.baseH || 1024;
 
+  gameImage.onload = () => {
+    drawOverlayButtons(g, baseW, baseH);
+    fitOverlayToContainedImage(baseW, baseH);
+  };
+
+  gameImage.src = g.image;
+
+  // In case image is cached
+  setTimeout(() => {
+    drawOverlayButtons(g, baseW, baseH);
+    fitOverlayToContainedImage(baseW, baseH);
+  }, 0);
+}
+
+function drawOverlayButtons(g, baseW, baseH) {
   overlay.setAttribute("viewBox", `0 0 ${baseW} ${baseH}`);
   overlay.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
@@ -441,6 +452,24 @@ function renderTarget() {
   }
 }
 
+// This is the key: match overlay size/position to the actual displayed (contained) image
+function fitOverlayToContainedImage(baseW, baseH) {
+  const stageW = targetStage.clientWidth;
+  const stageH = targetStage.clientHeight;
+
+  const scale = Math.min(stageW / baseW, stageH / baseH);
+  const drawW = baseW * scale;
+  const drawH = baseH * scale;
+
+  const offsetX = (stageW - drawW) / 2;
+  const offsetY = (stageH - drawH) / 2;
+
+  overlay.style.width = `${drawW}px`;
+  overlay.style.height = `${drawH}px`;
+  overlay.style.left = `${offsetX}px`;
+  overlay.style.top = `${offsetY}px`;
+}
+
 // ---------- SCOREBOARD TABLE ----------
 function renderScoreboard() {
   const rounds = state.rounds;
@@ -458,15 +487,15 @@ function renderScoreboard() {
     <th class="stickyLeft" rowspan="2">Player</th>`;
 
   for (let r = 0; r < rounds; r++) {
-    html += `<th class="group" colspan="${throwsN + 1}">Round ${r + 1}</th>`;
+    html += `<th colspan="${throwsN + 1}">Round ${r + 1}</th>`;
   }
-  html += `<th class="group totalCell" rowspan="2">Total</th>`;
+  html += `<th class="totalCell" rowspan="2">Total</th>`;
   html += `</tr>`;
 
   html += `<tr>`;
   for (let r = 0; r < rounds; r++) {
-    for (let t = 0; t < throwsN; t++) html += `<th class="group">${t + 1}</th>`;
-    html += `<th class="group totalCell">T</th>`;
+    for (let t = 0; t < throwsN; t++) html += `<th>${t + 1}</th>`;
+    html += `<th class="totalCell">T</th>`;
   }
   html += `</tr></thead><tbody>`;
 
@@ -507,3 +536,4 @@ function loadState() {
 function saveState() {
   localStorage.setItem(KEY_STATE, JSON.stringify(state));
 }
+
