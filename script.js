@@ -11,9 +11,7 @@
 // ====== CHANGE THIS PIN ======
 const STAFF_PIN = "1234"; // change this
 
-// ====== GAMES ======
-// baseW/baseH MUST match the coordinate system you used when setting x/y.
-// If all your images are 1024x1024, keep this.
+// ====== GAMES (FINAL POSITIONS) ======
 const GAMES = [
   {
     id: "ducks",
@@ -22,16 +20,16 @@ const GAMES = [
     baseW: 1024,
     baseH: 1024,
     buttons: [
-      { score: 1, x: 354, y: 293 },
-      { score: 6, x: 587, y: 293 },
-      { score: 2, x: 449, y: 432 },
-      { score: 7, x: 365, y: 555 },
-      { score: 5, x: 601, y: 606 },
-      { score: 3, x: 461, y: 653 },
-      { score: 9, x: 329, y: 701 },
-      { score: 10, x: 646, y: 702 },
-      { score: 4, x: 558, y: 782 },
-      { score: 8, x: 393, y: 818 }
+      { score: 1,  x: 370, y: 403 },
+      { score: 2,  x: 462, y: 485 },
+      { score: 6,  x: 598, y: 397 },
+      { score: 7,  x: 384, y: 553 },
+      { score: 3,  x: 473, y: 606 },
+      { score: 5,  x: 615, y: 569 },
+      { score: 10, x: 665, y: 635 },
+      { score: 4,  x: 571, y: 680 },
+      { score: 8,  x: 396, y: 701 },
+      { score: 9,  x: 336, y: 633 }
     ]
   },
   {
@@ -41,11 +39,11 @@ const GAMES = [
     baseW: 1024,
     baseH: 1024,
     buttons: [
-      { score: 7, x: 315, y: 95 },
-      { score: 7, x: 707, y: 95 },
-      { score: 1, x: 352, y: 404 },
-      { score: 3, x: 425, y: 449 },
-      { score: 5, x: 500, y: 498 }
+      { score: 7, x: 327, y: 284 },
+      { score: 7, x: 724, y: 282 },
+      { score: 1, x: 359, y: 457 },
+      { score: 3, x: 434, y: 487 },
+      { score: 5, x: 514, y: 522 }
     ]
   },
   {
@@ -54,7 +52,28 @@ const GAMES = [
     image: "images/darts.png",
     baseW: 1024,
     baseH: 1024,
-    buttons: makeDartsButtons()
+    buttons: [
+      { score: 20, x: 509, y: 324 },
+      { score: 1,  x: 566, y: 334 },
+      { score: 18, x: 617, y: 362 },
+      { score: 4,  x: 649, y: 401 },
+      { score: 13, x: 670, y: 451 },
+      { score: 6,  x: 677, y: 497 },
+      { score: 10, x: 678, y: 548 },
+      { score: 15, x: 650, y: 598 },
+      { score: 2,  x: 612, y: 642 },
+      { score: 17, x: 565, y: 660 },
+      { score: 3,  x: 510, y: 671 },
+      { score: 19, x: 456, y: 666 },
+      { score: 7,  x: 408, y: 642 },
+      { score: 16, x: 367, y: 602 },
+      { score: 8,  x: 384, y: 546 },
+      { score: 11, x: 340, y: 498 },
+      { score: 14, x: 341, y: 441 },
+      { score: 9,  x: 369, y: 395 },
+      { score: 12, x: 411, y: 357 },
+      { score: 5,  x: 452, y: 333 }
+    ]
   },
   {
     id: "zombie",
@@ -63,49 +82,23 @@ const GAMES = [
     baseW: 1024,
     baseH: 1024,
     buttons: [
-      { score: 10, x: 526, y: 174 },
-      { score: 1, x: 387, y: 181 },
-      { score: 2, x: 462, y: 361 },
-      { score: 2, x: 543, y: 366 },
-      { score: 2, x: 389, y: 404 },
-      { score: 2, x: 592, y: 449 },
-      { score: 1, x: 376, y: 466 },
-      { score: 3, x: 502, y: 498 },
-      { score: 2, x: 538, y: 591 },
-      { score: 2, x: 475, y: 601 },
-      { score: 2, x: 511, y: 703 },
-      { score: 2, x: 632, y: 704 },
-      { score: 2, x: 572, y: 810 },
-      { score: 2, x: 458, y: 830 },
-      { score: 2, x: 622, y: 851 }
+      { score: 10, x: 537, y: 316 }, // head
+      { score: 1,  x: 395, y: 328 }, // arm/hand
+      { score: 2,  x: 477, y: 435 },
+      { score: 2,  x: 533, y: 437 },
+      { score: 2,  x: 404, y: 458 },
+      { score: 3,  x: 517, y: 515 }, // chest
+      { score: 2,  x: 604, y: 487 },
+      { score: 2,  x: 550, y: 563 },
+      { score: 2,  x: 486, y: 570 },
+      { score: 2,  x: 523, y: 627 },
+      { score: 2,  x: 649, y: 630 },
+      { score: 2,  x: 586, y: 690 },
+      { score: 2,  x: 471, y: 702 },
+      { score: 2,  x: 640, y: 720 }
     ]
   }
 ];
-
-function makeDartsButtons() {
-  return [
-    { score: 20, x: 498, y: 138 },
-    { score: 1,  x: 557, y: 154 },
-    { score: 18, x: 609, y: 202 },
-    { score: 4,  x: 651, y: 276 },
-    { score: 13, x: 678, y: 370 },
-    { score: 6,  x: 687, y: 474 },
-    { score: 10, x: 678, y: 579 },
-    { score: 15, x: 651, y: 672 },
-    { score: 2,  x: 609, y: 747 },
-    { score: 17, x: 557, y: 795 },
-    { score: 3,  x: 498, y: 811 },
-    { score: 19, x: 440, y: 795 },
-    { score: 7,  x: 387, y: 747 },
-    { score: 16, x: 345, y: 672 },
-    { score: 8,  x: 318, y: 579 },
-    { score: 11, x: 309, y: 474 },
-    { score: 14, x: 318, y: 370 },
-    { score: 9,  x: 345, y: 276 },
-    { score: 12, x: 387, y: 202 },
-    { score: 5,  x: 440, y: 154 }
-  ];
-}
 
 // ====== DOM ======
 const navScoreboard = document.getElementById("navScoreboard");
@@ -151,7 +144,7 @@ const laneLabel = document.getElementById("laneLabel");
 const timerLabel = document.getElementById("timerLabel");
 
 // ====== STORAGE ======
-const KEY_STATE = "rh_scoring_state_final_v1";
+const KEY_STATE = "rh_scoring_state_final_v4";
 
 // ====== STATE ======
 let staffUnlocked = false;
@@ -170,7 +163,6 @@ init();
 
 // ---------- INIT ----------
 function init() {
-  // Populate game dropdown
   gameSelect.innerHTML = GAMES.map(g => `<option value="${g.id}">${g.name}</option>`).join("");
   gameSelect.value = state.gameId;
 
@@ -190,23 +182,19 @@ function init() {
   showPage("scoreboard");
   setStaffUnlocked(false);
 
-  // Nav
   navScoreboard.addEventListener("click", () => showPage("scoreboard"));
   navGames.addEventListener("click", () => showPage("games"));
   navAllGames.addEventListener("click", () => showPage("allgames"));
 
-  // Staff PIN
   unlockBtn.addEventListener("click", openPinModal);
   pinCancelBtn.addEventListener("click", closePinModal);
   pinOkBtn.addEventListener("click", tryUnlock);
   pinInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
 
-  // Staff actions
   addPlayerBtn.addEventListener("click", addPlayer);
   applyGameBtn.addEventListener("click", applyGameSettings);
   startNewGameBtn.addEventListener("click", startNewGame);
 
-  // Scoring (CUSTOMERS ALWAYS CAN CLICK)
   undoBtn.addEventListener("click", undo);
   missBtn.addEventListener("click", () => addScore(0));
   missOnBoardBtn.addEventListener("click", () => addScore(0));
@@ -219,10 +207,8 @@ function init() {
     addScore(score);
   });
 
-  // Fullscreen
   kioskBtn.addEventListener("click", enterFullscreen);
 
-  // Keep overlay aligned on resize
   window.addEventListener("resize", () => {
     const g = currentGame();
     fitOverlayToContainedImage(g.baseW || 1024, g.baseH || 1024);
@@ -264,7 +250,6 @@ function setStaffUnlocked(unlocked) {
 
   const disabled = !unlocked;
 
-  // Staff-only controls
   laneSelect.disabled = disabled;
   gameSelect.disabled = disabled;
   roundsInput.disabled = disabled;
@@ -274,7 +259,6 @@ function setStaffUnlocked(unlocked) {
   applyGameBtn.disabled = disabled;
   startNewGameBtn.disabled = disabled;
 
-  // Hide staff pages when locked (customers use scoreboard only)
   navGames.style.display = unlocked ? "" : "none";
   navAllGames.style.display = unlocked ? "" : "none";
   if (!unlocked) showPage("scoreboard");
@@ -419,7 +403,6 @@ function renderTarget() {
 
   gameImage.src = g.image;
 
-  // In case image is cached
   setTimeout(() => {
     drawOverlayButtons(g, baseW, baseH);
     fitOverlayToContainedImage(baseW, baseH);
@@ -439,7 +422,7 @@ function drawOverlayButtons(g, baseW, baseH) {
     const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     c.setAttribute("cx", String(b.x));
     c.setAttribute("cy", String(b.y));
-    c.setAttribute("r", "44"); // BIG tap area
+    c.setAttribute("r", "44"); // big tap zone
 
     const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
     t.setAttribute("x", String(b.x));
@@ -452,7 +435,6 @@ function drawOverlayButtons(g, baseW, baseH) {
   }
 }
 
-// This is the key: match overlay size/position to the actual displayed (contained) image
 function fitOverlayToContainedImage(baseW, baseH) {
   const stageW = targetStage.clientWidth;
   const stageH = targetStage.clientHeight;
@@ -482,15 +464,9 @@ function renderScoreboard() {
     : `Game finished`;
 
   let html = `<table><thead>`;
-
-  html += `<tr>
-    <th class="stickyLeft" rowspan="2">Player</th>`;
-
-  for (let r = 0; r < rounds; r++) {
-    html += `<th colspan="${throwsN + 1}">Round ${r + 1}</th>`;
-  }
-  html += `<th class="totalCell" rowspan="2">Total</th>`;
-  html += `</tr>`;
+  html += `<tr><th class="stickyLeft" rowspan="2">Player</th>`;
+  for (let r = 0; r < rounds; r++) html += `<th colspan="${throwsN + 1}">Round ${r + 1}</th>`;
+  html += `<th class="totalCell" rowspan="2">Total</th></tr>`;
 
   html += `<tr>`;
   for (let r = 0; r < rounds; r++) {
@@ -500,19 +476,12 @@ function renderScoreboard() {
   html += `</tr></thead><tbody>`;
 
   for (let p = 0; p < pCount; p++) {
-    html += `<tr>`;
-    html += `<td class="stickyLeft">${state.players[p]}</td>`;
-
+    html += `<tr><td class="stickyLeft">${state.players[p]}</td>`;
     for (let r = 0; r < rounds; r++) {
-      for (let t = 0; t < throwsN; t++) {
-        const v = state.throws[p][r][t];
-        html += `<td>${v ?? ""}</td>`;
-      }
+      for (let t = 0; t < throwsN; t++) html += `<td>${state.throws[p][r][t] ?? ""}</td>`;
       html += `<td class="totalCell">${roundTotal(p, r)}</td>`;
     }
-
-    html += `<td class="totalCell">${gameTotal(p)}</td>`;
-    html += `</tr>`;
+    html += `<td class="totalCell">${gameTotal(p)}</td></tr>`;
   }
 
   html += `</tbody></table>`;
@@ -536,4 +505,3 @@ function loadState() {
 function saveState() {
   localStorage.setItem(KEY_STATE, JSON.stringify(state));
 }
-
