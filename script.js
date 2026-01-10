@@ -4,14 +4,15 @@
  * - Unlimited players
  * - Custom rounds + throws
  * - Customers can ALWAYS score
+ * - Start New Game is staff-only (on Games page)
+ * - Start New Game removes empty names (fixes empty slots)
  * - Target BIG underneath scoreboard
  * - PERFECT overlay alignment with object-fit: contain
  *********************************/
 
-// ====== CHANGE THIS PIN ======
 const STAFF_PIN = "1234"; // change this
 
-// ====== GAMES (FINAL POSITIONS) ======
+// FINAL POSITIONS
 const GAMES = [
   {
     id: "ducks",
@@ -82,12 +83,12 @@ const GAMES = [
     baseW: 1024,
     baseH: 1024,
     buttons: [
-      { score: 10, x: 537, y: 316 }, // head
-      { score: 1,  x: 395, y: 328 }, // arm/hand
+      { score: 10, x: 537, y: 316 },
+      { score: 1,  x: 395, y: 328 },
       { score: 2,  x: 477, y: 435 },
       { score: 2,  x: 533, y: 437 },
       { score: 2,  x: 404, y: 458 },
-      { score: 3,  x: 517, y: 515 }, // chest
+      { score: 3,  x: 517, y: 515 },
       { score: 2,  x: 604, y: 487 },
       { score: 2,  x: 550, y: 563 },
       { score: 2,  x: 486, y: 570 },
@@ -100,7 +101,7 @@ const GAMES = [
   }
 ];
 
-// ====== DOM ======
+// DOM
 const navScoreboard = document.getElementById("navScoreboard");
 const navGames = document.getElementById("navGames");
 const navAllGames = document.getElementById("navAllGames");
@@ -143,10 +144,10 @@ const statusText = document.getElementById("statusText");
 const laneLabel = document.getElementById("laneLabel");
 const timerLabel = document.getElementById("timerLabel");
 
-// ====== STORAGE ======
-const KEY_STATE = "rh_scoring_state_final_v4";
+// Storage
+const KEY_STATE = "rh_scoring_state_staffbutton_v1";
 
-// ====== STATE ======
+// State
 let staffUnlocked = false;
 let undoStack = [];
 
@@ -161,7 +162,6 @@ let state = loadState() ?? {
 
 init();
 
-// ---------- INIT ----------
 function init() {
   gameSelect.innerHTML = GAMES.map(g => `<option value="${g.id}">${g.name}</option>`).join("");
   gameSelect.value = state.gameId;
@@ -193,8 +193,11 @@ function init() {
 
   addPlayerBtn.addEventListener("click", addPlayer);
   applyGameBtn.addEventListener("click", applyGameSettings);
+
+  // Staff-only new game + removes empty slots
   startNewGameBtn.addEventListener("click", startNewGame);
 
+  // Customers can still score
   undoBtn.addEventListener("click", undo);
   missBtn.addEventListener("click", () => addScore(0));
   missOnBoardBtn.addEventListener("click", () => addScore(0));
@@ -215,7 +218,6 @@ function init() {
   });
 }
 
-// ---------- NAV ----------
 function showPage(which) {
   pageScoreboard.style.display = which === "scoreboard" ? "" : "none";
   pageGames.style.display = which === "games" ? "" : "none";
@@ -226,7 +228,6 @@ function showPage(which) {
   navAllGames.classList.toggle("active", which === "allgames");
 }
 
-// ---------- STAFF LOCK ----------
 function openPinModal() {
   pinMsg.textContent = "";
   pinInput.value = "";
@@ -244,6 +245,7 @@ function tryUnlock() {
     pinMsg.textContent = "Incorrect PIN";
   }
 }
+
 function setStaffUnlocked(unlocked) {
   staffUnlocked = unlocked;
   unlockBtn.textContent = unlocked ? "🔓 Staff Unlocked" : "🔒 Staff Locked";
@@ -254,6 +256,7 @@ function setStaffUnlocked(unlocked) {
   gameSelect.disabled = disabled;
   roundsInput.disabled = disabled;
   throwsInput.disabled = disabled;
+
   newPlayerName.disabled = disabled;
   addPlayerBtn.disabled = disabled;
   applyGameBtn.disabled = disabled;
@@ -266,7 +269,6 @@ function setStaffUnlocked(unlocked) {
   renderPlayersEditor();
 }
 
-// ---------- PLAYERS ----------
 function renderPlayersEditor() {
   playersList.innerHTML = "";
   state.players.forEach((name, idx) => {
@@ -302,7 +304,6 @@ function addPlayer() {
   renderScoreboard();
 }
 
-// ---------- APPLY GAME ----------
 function applyGameSettings() {
   if (!staffUnlocked) return;
 
@@ -320,13 +321,25 @@ function applyGameSettings() {
   showPage("scoreboard");
 }
 
+// ✅ FIX: removes empty slots then starts new game
 function startNewGame() {
   if (!staffUnlocked) return;
+
+  state.players = state.players
+    .map(n => (n || "").trim())
+    .filter(n => n.length > 0);
+
+  if (state.players.length === 0) {
+    state.players = ["Player 1"];
+  }
+
+  saveState();
   resetScoreboard();
+  renderPlayersEditor();
   renderScoreboard();
+  showPage("scoreboard");
 }
 
-// ---------- HELPERS ----------
 function clampInt(v, min, max, fallback) {
   const n = Number(v);
   if (!Number.isFinite(n)) return fallback;
@@ -336,7 +349,6 @@ function currentGame() {
   return GAMES.find(g => g.id === state.gameId) ?? GAMES[0];
 }
 
-// ---------- SCORE DATA ----------
 function resetScoreboard() {
   const pCount = state.players.length;
   const rounds = state.rounds;
@@ -390,7 +402,7 @@ function undo() {
   renderScoreboard();
 }
 
-// ---------- TARGET RENDER (PERFECT ALIGNMENT) ----------
+// TARGET render + alignment
 function renderTarget() {
   const g = currentGame();
   const baseW = g.baseW || 1024;
@@ -422,7 +434,7 @@ function drawOverlayButtons(g, baseW, baseH) {
     const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     c.setAttribute("cx", String(b.x));
     c.setAttribute("cy", String(b.y));
-    c.setAttribute("r", "44"); // big tap zone
+    c.setAttribute("r", "44");
 
     const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
     t.setAttribute("x", String(b.x));
@@ -452,7 +464,7 @@ function fitOverlayToContainedImage(baseW, baseH) {
   overlay.style.top = `${offsetY}px`;
 }
 
-// ---------- SCOREBOARD TABLE ----------
+// Scoreboard render
 function renderScoreboard() {
   const rounds = state.rounds;
   const throwsN = state.throwsPerRound;
@@ -488,7 +500,7 @@ function renderScoreboard() {
   scoreboardEl.innerHTML = html;
 }
 
-// ---------- FULLSCREEN ----------
+// Fullscreen
 async function enterFullscreen() {
   try {
     if (document.documentElement.requestFullscreen) {
@@ -497,7 +509,7 @@ async function enterFullscreen() {
   } catch {}
 }
 
-// ---------- STORAGE ----------
+// Storage
 function loadState() {
   try { return JSON.parse(localStorage.getItem(KEY_STATE) || "null"); }
   catch { return null; }
