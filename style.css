@@ -191,7 +191,7 @@ thead th{background:#fafafa;}
   display:block;
 }
 
-/* SVG overlay will be resized by JS to match the actual contained image area */
+/* SVG overlay resized by JS to match contained image */
 #overlay{
   position:absolute;
   left:0;
@@ -202,13 +202,11 @@ thead th{background:#fafafa;}
 
 /* Clickable score buttons */
 .scoreBtn{cursor:pointer; user-select:none;}
-/* Invisible but HUGE tap area */
 .scoreBtn circle{
   fill: rgba(255,255,255,0.0);
   stroke: rgba(255,255,255,0.0);
   stroke-width: 0;
 }
-/* White numbers */
 .scoreBtn text{
   font-weight: 1000;
   fill:#ffffff;
