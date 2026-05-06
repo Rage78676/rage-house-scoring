@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Rage House Scoring</title>
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Phase 1 extras -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 
 <body>
@@ -20,7 +25,10 @@
     </div>
   </header>
 
-  <div class="layout">
+  <!-- Phone email capture page for QR -->
+  <div id="emailCapturePage" style="display:none;"></div>
+
+  <div class="layout" id="mainApp">
     <aside class="sidebar">
       <div class="brand">
         <div class="brandTitle">THE RAGE HOUSE</div>
@@ -72,7 +80,7 @@
         </div>
       </section>
 
-      <!-- GAMES PAGE (STAFF ONLY CONTROLS) -->
+      <!-- GAMES PAGE -->
       <section id="pageGames" style="display:none;">
         <div class="card">
           <div class="cardHeader">
@@ -106,9 +114,27 @@
               </div>
 
               <button class="btnPrimary wide" id="applyGameBtn" disabled>Apply Game</button>
-
-              <!-- MOVED HERE (staff only) -->
               <button class="btnDark wide" id="startNewGameBtn" disabled>Start New Game</button>
+
+              <div class="hr"></div>
+
+              <label class="label">Timer Minutes</label>
+              <input id="timerMinutesInput" type="number" min="1" max="180" value="60" disabled />
+
+              <div class="buttonRow">
+                <button class="btnPrimary" id="startTimerBtn" disabled>Start Timer</button>
+                <button class="btn" id="stopTimerBtn" disabled>Stop Timer</button>
+                <button class="btn" id="resetTimerBtn" disabled>Reset Timer</button>
+              </div>
+
+              <div class="hr"></div>
+
+              <label class="label">Customer Email</label>
+              <input id="customerEmail" type="email" placeholder="customer@email.com" disabled />
+
+              <button class="btnPrimary wide" id="emailResultsBtn" disabled>Email Results</button>
+              <button class="btn wide" id="qrEmailBtn" disabled>Show QR Email Capture</button>
+              <button class="btnDark wide" id="instagramBtn" disabled>Download Instagram Result</button>
             </div>
 
             <div>
@@ -128,7 +154,7 @@
         </div>
       </section>
 
-      <!-- ALL GAMES PAGE (placeholder) -->
+      <!-- ALL GAMES PAGE -->
       <section id="pageAllGames" style="display:none;">
         <div class="card">
           <div class="cardHeader">
