@@ -18,7 +18,7 @@
 const STAFF_PIN = "1234";
 
 /* EmailJS */
-const EMAILJS_PUBLIC_KEY = "n4VN4mRduLpnyikD";
+const EMAILJS_PUBLIC_KEY = "n4VN4mRduLpnyikD_";
 const EMAILJS_SERVICE_ID = "AxeRageHouse786";
 const EMAILJS_TEMPLATE_ID = "template_y9ou20p";
 const BOOKING_LINK = "https://www.theragehouse.com/book-online";
@@ -173,7 +173,7 @@ const qrEmailBtn = document.getElementById("qrEmailBtn");
 const instagramBtn = document.getElementById("instagramBtn");
 
 /* Storage */
-const KEY_STATE = "rh_scoring_phase1_full_v3";
+const KEY_STATE = "rh_scoring_phase1_full_v4";
 
 /* State */
 let staffUnlocked = false;
