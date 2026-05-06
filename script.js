@@ -11,6 +11,7 @@
  * - Timer
  * - Email results with EmailJS
  * - QR customer email capture
+ * - QR automatically appears when game finishes
  * - Instagram result image download
  *********************************/
 
@@ -26,7 +27,7 @@ if (window.emailjs) {
   emailjs.init(EMAILJS_PUBLIC_KEY);
 }
 
-// FINAL POSITIONS
+/* Games */
 const GAMES = [
   {
     id: "ducks",
@@ -172,12 +173,13 @@ const qrEmailBtn = document.getElementById("qrEmailBtn");
 const instagramBtn = document.getElementById("instagramBtn");
 
 /* Storage */
-const KEY_STATE = "rh_scoring_phase1_full_v2";
+const KEY_STATE = "rh_scoring_phase1_full_v3";
 
 /* State */
 let staffUnlocked = false;
 let undoStack = [];
 let timerInterval = null;
+let qrAlreadyShownForThisGame = false;
 
 let state = loadState() ?? {
   lane: "Lane 1",
@@ -224,9 +226,11 @@ function init() {
   setStaffUnlocked(false);
 
   navScoreboard.addEventListener("click", () => showPage("scoreboard"));
+
   navGames.addEventListener("click", () => {
     if (staffUnlocked) showPage("games");
   });
+
   navAllGames.addEventListener("click", () => {
     if (staffUnlocked) showPage("allgames");
   });
@@ -234,6 +238,7 @@ function init() {
   unlockBtn.addEventListener("click", openPinModal);
   pinCancelBtn.addEventListener("click", closePinModal);
   pinOkBtn.addEventListener("click", tryUnlock);
+
   pinInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") tryUnlock();
   });
@@ -304,7 +309,6 @@ function tryUnlock() {
   }
 }
 
-/* ✅ FIXED UNLOCK FUNCTION */
 function setStaffUnlocked(unlocked) {
   staffUnlocked = unlocked;
 
@@ -313,7 +317,6 @@ function setStaffUnlocked(unlocked) {
   navGames.style.display = unlocked ? "" : "none";
   navAllGames.style.display = unlocked ? "" : "none";
 
-  // Unlock/lock everything inside staff Games page
   const staffPageControls = pageGames.querySelectorAll("input, select, button");
 
   staffPageControls.forEach(el => {
@@ -328,7 +331,6 @@ function setStaffUnlocked(unlocked) {
     }
   });
 
-  // Re-render player input boxes so they also unlock correctly
   renderPlayersEditor();
 
   if (unlocked) {
@@ -394,6 +396,8 @@ function applyGameSettings() {
 
   laneLabel.textContent = state.lane;
 
+  qrAlreadyShownForThisGame = false;
+
   saveState();
   resetScoreboard();
   renderTarget();
@@ -401,7 +405,6 @@ function applyGameSettings() {
   showPage("scoreboard");
 }
 
-/* Start New Game removes empty names */
 function startNewGame() {
   if (!staffUnlocked) return;
 
@@ -412,6 +415,8 @@ function startNewGame() {
   if (state.players.length === 0) {
     state.players = ["Player 1"];
   }
+
+  qrAlreadyShownForThisGame = false;
 
   saveState();
   resetScoreboard();
@@ -531,6 +536,14 @@ function addScore(score) {
 
   saveState();
   renderScoreboard();
+
+  if (findNextEmpty() === null && !qrAlreadyShownForThisGame) {
+    qrAlreadyShownForThisGame = true;
+
+    setTimeout(() => {
+      showQrEmailCapture();
+    }, 500);
+  }
 }
 
 function undo() {
@@ -538,6 +551,8 @@ function undo() {
   if (!last) return;
 
   state.throws[last.p][last.r][last.t] = last.prev;
+
+  qrAlreadyShownForThisGame = false;
 
   saveState();
   renderScoreboard();
@@ -637,6 +652,7 @@ function renderScoreboard() {
     for (let t = 0; t < throwsN; t++) {
       html += `<th>${t + 1}</th>`;
     }
+
     html += `<th class="totalCell">T</th>`;
   }
 
@@ -699,27 +715,37 @@ async function emailResults(emailAddress) {
   const r = buildResults();
 
   try {
-    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-      to_email: email,
-      lane: r.lane,
-      game: r.game,
-      date: r.date,
-      winner: r.winner,
-      results: r.resultsText,
-      booking_link: BOOKING_LINK
-    });
+    await emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_ID,
+      {
+        to_email: email,
+        lane: r.lane,
+        game: r.game,
+        date: r.date,
+        winner: r.winner,
+        results: r.resultsText,
+        booking_link: BOOKING_LINK
+      }
+    );
 
     alert("Results emailed successfully!");
   } catch (err) {
-    console.error(err);
-    alert("Email failed. Check EmailJS template/service settings.");
+    console.error("EMAILJS ERROR:", err);
+
+    alert(
+      "Email failed:\n\n" +
+      (
+        err?.text ||
+        err?.message ||
+        JSON.stringify(err)
+      )
+    );
   }
 }
 
 /* QR email capture */
 function showQrEmailCapture() {
-  if (!staffUnlocked) return;
-
   const r = buildResults();
   const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(r)))));
   const url = `${location.origin}${location.pathname}?email=1#d=${encoded}`;
@@ -797,21 +823,38 @@ function renderPhoneEmailCapture() {
       return;
     }
 
+    if (!window.emailjs) {
+      alert("EmailJS has not loaded. Check internet connection.");
+      return;
+    }
+
     try {
-      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-        to_email: email,
-        lane: data.lane,
-        game: data.game,
-        date: data.date,
-        winner: data.winner,
-        results: data.resultsText,
-        booking_link: BOOKING_LINK
-      });
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        {
+          to_email: email,
+          lane: data.lane,
+          game: data.game,
+          date: data.date,
+          winner: data.winner,
+          results: data.resultsText,
+          booking_link: BOOKING_LINK
+        }
+      );
 
       alert("Results sent!");
     } catch (err) {
-      console.error(err);
-      alert("Email failed.");
+      console.error("EMAILJS PHONE ERROR:", err);
+
+      alert(
+        "Email failed:\n\n" +
+        (
+          err?.text ||
+          err?.message ||
+          JSON.stringify(err)
+        )
+      );
     }
   };
 }
