@@ -172,7 +172,7 @@ const qrEmailBtn = document.getElementById("qrEmailBtn");
 const instagramBtn = document.getElementById("instagramBtn");
 
 /* Storage */
-const KEY_STATE = "rh_scoring_phase1_full_v1";
+const KEY_STATE = "rh_scoring_phase1_full_v2";
 
 /* State */
 let staffUnlocked = false;
@@ -195,6 +195,7 @@ init();
 
 function init() {
   const params = new URLSearchParams(window.location.search);
+
   if (params.get("email") === "1") {
     renderPhoneEmailCapture();
     return;
@@ -210,7 +211,9 @@ function init() {
 
   laneLabel.textContent = state.lane;
 
-  if (!Array.isArray(state.throws) || state.throws.length === 0) resetScoreboard();
+  if (!Array.isArray(state.throws) || state.throws.length === 0) {
+    resetScoreboard();
+  }
 
   renderPlayersEditor();
   renderTarget();
@@ -221,13 +224,19 @@ function init() {
   setStaffUnlocked(false);
 
   navScoreboard.addEventListener("click", () => showPage("scoreboard"));
-  navGames.addEventListener("click", () => showPage("games"));
-  navAllGames.addEventListener("click", () => showPage("allgames"));
+  navGames.addEventListener("click", () => {
+    if (staffUnlocked) showPage("games");
+  });
+  navAllGames.addEventListener("click", () => {
+    if (staffUnlocked) showPage("allgames");
+  });
 
   unlockBtn.addEventListener("click", openPinModal);
   pinCancelBtn.addEventListener("click", closePinModal);
   pinOkBtn.addEventListener("click", tryUnlock);
-  pinInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
+  pinInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") tryUnlock();
+  });
 
   addPlayerBtn.addEventListener("click", addPlayer);
   applyGameBtn.addEventListener("click", applyGameSettings);
@@ -248,8 +257,10 @@ function init() {
   overlay.addEventListener("click", (e) => {
     const btn = e.target.closest(".scoreBtn");
     if (!btn) return;
+
     const score = Number(btn.dataset.score);
     if (!Number.isFinite(score)) return;
+
     addScore(score);
   });
 
@@ -293,39 +304,38 @@ function tryUnlock() {
   }
 }
 
+/* ✅ FIXED UNLOCK FUNCTION */
 function setStaffUnlocked(unlocked) {
   staffUnlocked = unlocked;
+
   unlockBtn.textContent = unlocked ? "🔓 Staff Unlocked" : "🔒 Staff Locked";
-
-  const disabled = !unlocked;
-
-  [
-    laneSelect,
-    gameSelect,
-    roundsInput,
-    throwsInput,
-    newPlayerName,
-    addPlayerBtn,
-    applyGameBtn,
-    startNewGameBtn,
-    timerMinutesInput,
-    startTimerBtn,
-    stopTimerBtn,
-    resetTimerBtn,
-    customerEmail,
-    emailResultsBtn,
-    qrEmailBtn,
-    instagramBtn
-  ].forEach(el => {
-    if (el) el.disabled = disabled;
-  });
 
   navGames.style.display = unlocked ? "" : "none";
   navAllGames.style.display = unlocked ? "" : "none";
 
-  if (!unlocked) showPage("scoreboard");
+  // Unlock/lock everything inside staff Games page
+  const staffPageControls = pageGames.querySelectorAll("input, select, button");
 
+  staffPageControls.forEach(el => {
+    el.disabled = !unlocked;
+
+    if (unlocked) {
+      el.removeAttribute("disabled");
+      el.removeAttribute("aria-disabled");
+    } else {
+      el.setAttribute("disabled", "disabled");
+      el.setAttribute("aria-disabled", "true");
+    }
+  });
+
+  // Re-render player input boxes so they also unlock correctly
   renderPlayersEditor();
+
+  if (unlocked) {
+    showPage("games");
+  } else {
+    showPage("scoreboard");
+  }
 }
 
 /* Players */
@@ -340,6 +350,12 @@ function renderPlayersEditor() {
     input.value = name;
     input.disabled = !staffUnlocked;
 
+    if (staffUnlocked) {
+      input.removeAttribute("disabled");
+    } else {
+      input.setAttribute("disabled", "disabled");
+    }
+
     input.addEventListener("input", () => {
       state.players[idx] = input.value;
       saveState();
@@ -353,13 +369,14 @@ function renderPlayersEditor() {
 
 function addPlayer() {
   if (!staffUnlocked) return;
+
   const name = (newPlayerName.value || "").trim();
   if (!name) return;
 
   state.players.push(name);
   newPlayerName.value = "";
-  saveState();
 
+  saveState();
   resetScoreboard();
   renderPlayersEditor();
   renderScoreboard();
@@ -408,6 +425,7 @@ function startTimer() {
   if (!staffUnlocked) return;
 
   const mins = clampInt(timerMinutesInput.value, 1, 180, 60);
+
   state.timerMinutes = mins;
   state.timerRunning = true;
   state.timerEndsAt = Date.now() + mins * 60 * 1000;
@@ -487,6 +505,7 @@ function findNextEmpty() {
       }
     }
   }
+
   return null;
 }
 
@@ -495,7 +514,10 @@ function roundTotal(p, r) {
 }
 
 function gameTotal(p) {
-  return state.throws[p].reduce((sum, roundArr) => sum + roundArr.reduce((a, b) => a + (b ?? 0), 0), 0);
+  return state.throws[p].reduce(
+    (sum, roundArr) => sum + roundArr.reduce((a, b) => a + (b ?? 0), 0),
+    0
+  );
 }
 
 function addScore(score) {
@@ -506,6 +528,7 @@ function addScore(score) {
   undoStack.push({ ...next, prev });
 
   state.throws[next.p][next.r][next.t] = score;
+
   saveState();
   renderScoreboard();
 }
@@ -515,6 +538,7 @@ function undo() {
   if (!last) return;
 
   state.throws[last.p][last.r][last.t] = last.prev;
+
   saveState();
   renderScoreboard();
 }
@@ -574,6 +598,7 @@ function fitOverlayToContainedImage(baseW, baseH) {
   const stageH = targetStage.clientHeight;
 
   const scale = Math.min(stageW / baseW, stageH / baseH);
+
   const drawW = baseW * scale;
   const drawH = baseH * scale;
 
@@ -593,6 +618,7 @@ function renderScoreboard() {
   const pCount = state.players.length;
 
   const next = findNextEmpty();
+
   statusText.textContent = next
     ? `Round ${next.r + 1}, Throw ${next.t + 1} — ${state.players[next.p]}`
     : `Game finished`;
@@ -608,7 +634,9 @@ function renderScoreboard() {
   html += `<tr>`;
 
   for (let r = 0; r < rounds; r++) {
-    for (let t = 0; t < throwsN; t++) html += `<th>${t + 1}</th>`;
+    for (let t = 0; t < throwsN; t++) {
+      html += `<th>${t + 1}</th>`;
+    }
     html += `<th class="totalCell">T</th>`;
   }
 
@@ -621,6 +649,7 @@ function renderScoreboard() {
       for (let t = 0; t < throwsN; t++) {
         html += `<td>${state.throws[p][r][t] ?? ""}</td>`;
       }
+
       html += `<td class="totalCell">${roundTotal(p, r)}</td>`;
     }
 
@@ -628,15 +657,18 @@ function renderScoreboard() {
   }
 
   html += `</tbody></table>`;
+
   scoreboardEl.innerHTML = html;
 }
 
 /* Results */
 function buildResults() {
-  const players = state.players.map((name, idx) => ({
-    name,
-    total: gameTotal(idx)
-  })).sort((a, b) => b.total - a.total);
+  const players = state.players
+    .map((name, idx) => ({
+      name,
+      total: gameTotal(idx)
+    }))
+    .sort((a, b) => b.total - a.total);
 
   return {
     lane: state.lane,
@@ -650,6 +682,8 @@ function buildResults() {
 
 /* Email results */
 async function emailResults(emailAddress) {
+  if (!staffUnlocked) return;
+
   const email = (emailAddress || "").trim();
 
   if (!email) {
@@ -684,12 +718,15 @@ async function emailResults(emailAddress) {
 
 /* QR email capture */
 function showQrEmailCapture() {
+  if (!staffUnlocked) return;
+
   const r = buildResults();
   const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(r)))));
   const url = `${location.origin}${location.pathname}?email=1#d=${encoded}`;
 
   const modal = document.createElement("div");
   modal.className = "modal";
+
   modal.innerHTML = `
     <div class="qrBox">
       <h2>Scan to Email Results</h2>
@@ -715,6 +752,7 @@ function showQrEmailCapture() {
 /* Phone email capture page */
 function renderPhoneEmailCapture() {
   if (mainApp) mainApp.style.display = "none";
+
   const topBar = document.querySelector(".topBar");
   if (topBar) topBar.style.display = "none";
 
@@ -780,6 +818,8 @@ function renderPhoneEmailCapture() {
 
 /* Instagram image */
 async function downloadInstagramResult() {
+  if (!staffUnlocked) return;
+
   if (!window.html2canvas) {
     alert("Instagram export has not loaded. Check internet connection.");
     return;
@@ -821,6 +861,7 @@ async function downloadInstagramResult() {
   document.body.appendChild(card);
 
   const canvas = await html2canvas(card, { scale: 1 });
+
   const a = document.createElement("a");
   a.href = canvas.toDataURL("image/png");
   a.download = `rage-house-results-${Date.now()}.png`;
@@ -841,24 +882,29 @@ async function enterFullscreen() {
 /* Helpers */
 function clampInt(v, min, max, fallback) {
   const n = Number(v);
+
   if (!Number.isFinite(n)) return fallback;
+
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#039;"
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;"
   }[c]));
 }
 
 /* Storage */
 function loadState() {
-  try { return JSON.parse(localStorage.getItem(KEY_STATE) || "null"); }
-  catch { return null; }
+  try {
+    return JSON.parse(localStorage.getItem(KEY_STATE) || "null");
+  } catch {
+    return null;
+  }
 }
 
 function saveState() {
