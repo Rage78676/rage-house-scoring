@@ -6,9 +6,13 @@
   <title>Rage House Scoring</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Phase 1 extras -->
+  <!-- Required for Email Results -->
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+  <!-- Required for QR Code -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+
+  <!-- Required for Instagram Result Image -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 
@@ -25,7 +29,7 @@
     </div>
   </header>
 
-  <!-- Phone email capture page for QR -->
+  <!-- Used when customer scans QR code -->
   <div id="emailCapturePage" style="display:none;"></div>
 
   <div class="layout" id="mainApp">
@@ -80,7 +84,7 @@
         </div>
       </section>
 
-      <!-- GAMES PAGE -->
+      <!-- GAMES PAGE / STAFF ONLY -->
       <section id="pageGames" style="display:none;">
         <div class="card">
           <div class="cardHeader">
@@ -107,6 +111,7 @@
                   <label class="label">Rounds</label>
                   <input id="roundsInput" type="number" min="1" max="20" value="3" disabled />
                 </div>
+
                 <div>
                   <label class="label">Throws / Round</label>
                   <input id="throwsInput" type="number" min="1" max="30" value="7" disabled />
@@ -161,13 +166,14 @@
             <h2 class="h2">All Games</h2>
             <div class="muted">You can expand this later.</div>
           </div>
+
           <div class="muted">No history view in this version.</div>
         </div>
       </section>
     </main>
   </div>
 
-  <!-- PIN MODAL -->
+  <!-- STAFF PIN MODAL -->
   <div class="modal" id="pinModal" style="display:none;">
     <div class="modalInner">
       <h3 class="h3">Staff Unlock</h3>
@@ -184,6 +190,7 @@
     </div>
   </div>
 
+  <!-- Main scoring code must stay LAST -->
   <script src="script.js"></script>
 </body>
 </html>
